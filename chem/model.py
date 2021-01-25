@@ -7,10 +7,6 @@ from torch_scatter import scatter_add
 from torch_geometric.nn.inits import glorot, zeros
 
 num_atom_type = 120 #including the extra mask tokens
-num_degree = 11
-num_formal_charge = 11
-num_hybrid = 7
-num_aromatic = 2
 num_chirality_tag = 3
 
 num_bond_type = 6 #including aromatic and self-loop edge, and extra masked tokens
@@ -233,18 +229,10 @@ class GNN(torch.nn.Module):
             raise ValueError("Number of GNN layers must be greater than 1.")
 
         self.x_embedding1 = torch.nn.Embedding(num_atom_type, emb_dim)
-        self.x_embedding2 = torch.nn.Embedding(num_degree, emb_dim)
-        self.x_embedding3 = torch.nn.Embedding(num_formal_charge, emb_dim)
-        self.x_embedding4 = torch.nn.Embedding(num_hybrid, emb_dim)
-        self.x_embedding5 = torch.nn.Embedding(num_aromatic, emb_dim)
-        self.x_embedding6 = torch.nn.Embedding(num_chirality_tag, emb_dim)
+        self.x_embedding2 = torch.nn.Embedding(num_chirality_tag, emb_dim)
 
         torch.nn.init.xavier_uniform_(self.x_embedding1.weight.data)
         torch.nn.init.xavier_uniform_(self.x_embedding2.weight.data)
-        torch.nn.init.xavier_uniform_(self.x_embedding3.weight.data)
-        torch.nn.init.xavier_uniform_(self.x_embedding4.weight.data)
-        torch.nn.init.xavier_uniform_(self.x_embedding5.weight.data)
-        torch.nn.init.xavier_uniform_(self.x_embedding6.weight.data)
 
         ###List of MLPs
         self.gnns = torch.nn.ModuleList()
@@ -273,7 +261,7 @@ class GNN(torch.nn.Module):
         else:
             raise ValueError("unmatched number of arguments.")
 
-        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1]) + self.x_embedding3(x[:,2]) + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])
 
         h_list = [x]
         for layer in range(self.num_layer):

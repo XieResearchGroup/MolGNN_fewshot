@@ -5,7 +5,7 @@ from itertools import compress
 from rdkit.Chem.Scaffolds import MurckoScaffold
 from collections import defaultdict
 from sklearn.model_selection import StratifiedKFold
-from random import seed, sample
+
 # splitter function
 
 def generate_scaffold(smiles, include_chirality=False):
@@ -75,16 +75,7 @@ def scaffold_split(dataset, smiles_list, task_idx=None, null_value=0,
         scaffold_set for (scaffold, scaffold_set) in sorted(
             all_scaffolds.items(), key=lambda x: (len(x[1]), x[1][0]), reverse=True)
     ]
-        # shuffle the order of the sets that have less than 5 members
-        # make label distribution more even
-    for i, scaffold_set in enumerate(all_scaffold_sets):
-        if len(scaffold_set) <= 5:
-            start_point = i
-            break
-    def _myShuffle(x, *s):
-        x[slice(*s)] = sample(x[slice(*s)], len(x[slice(*s)]))
-    seed(0)
-    _myShuffle(all_scaffold_sets, start_point, None)
+
     # get train, valid test indices
     train_cutoff = frac_train * len(smiles_list)
     valid_cutoff = (frac_train + frac_valid) * len(smiles_list)
