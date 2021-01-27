@@ -77,14 +77,14 @@ def scaffold_split(dataset, smiles_list, task_idx=None, null_value=0,
     ]
         # shuffle the order of the sets that have less than 5 members
         # make label distribution more even
-    for i, scaffold_set in enumerate(all_scaffold_sets):
-        if len(scaffold_set) <= 5:
-            start_point = i
-            break
-    def _myShuffle(x, *s):
-        x[slice(*s)] = sample(x[slice(*s)], len(x[slice(*s)]))
-    seed(0)
-    _myShuffle(all_scaffold_sets, start_point, None)
+    #for i, scaffold_set in enumerate(all_scaffold_sets):
+     #   if len(scaffold_set) <= 5:
+      #      start_point = i
+      #      break
+    #def _myShuffle(x, *s):
+     #   x[slice(*s)] = sample(x[slice(*s)], len(x[slice(*s)]))
+    #seed(0)
+    #_myShuffle(all_scaffold_sets, start_point, None)
     # get train, valid test indices
     train_cutoff = frac_train * len(smiles_list)
     valid_cutoff = (frac_train + frac_valid) * len(smiles_list)
