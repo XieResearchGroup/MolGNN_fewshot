@@ -265,8 +265,8 @@ class GNN(torch.nn.Module):
 
     #def forward(self, x, edge_index, edge_attr):
     def forward(self, *argv):
-        if len(argv) == 3:
-            x, edge_index, edge_attr = argv[0], argv[1], argv[2]
+        if len(argv) == 2:
+            x, edge_index, edge_attr = argv[0], argv[1]
         elif len(argv) == 1:
             data = argv[0]
             x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
@@ -379,6 +379,81 @@ class GNN_graphpred(torch.nn.Module):
         node_representation = self.gnn(x, edge_index, edge_attr)
 
         return self.graph_pred_linear(self.pool(node_representation, batch))
+
+
+
+class GNN_fingerprint(torch.nn.Module):
+    """
+    Extension of GIN to incorporate fingerprint recoginition.
+
+    Args:
+        num_layer (int): the number of GNN layers
+        emb_dim (int): dimensionality of embeddings
+        fingerprint_dim (int): dimensinality of fingerprint 
+        drop_ratio (float): dropout rate
+        JK (str): last, concat, max or sum.
+        graph_pooling (str): sum, mean, max, attention, set2set
+        gnn_type: gin, gcn, graphsage, gat
+        
+    See https://arxiv.org/abs/1810.00826
+    JK-net: https://arxiv.org/abs/1806.03536
+    """
+    def __init__(self, num_layer, emb_dim,fingerprint_dim,  JK = "last", drop_ratio = 0,  gnn_type = "gin"):
+        super(GNN_graphpred, self).__init__()
+        self.num_layer = num_layer
+        self.drop_ratio = drop_ratio
+        self.JK = JK
+        self.emb_dim = emb_dim
+        
+
+        if self.num_layer < 2:
+            raise ValueError("Number of GNN layers must be greater than 1.")
+
+        self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type = gnn_type)
+        self.linear_pred_fingerprint = torch.nn.Linear(emb_dim,emb_dim)
+       
+
+        self.fingerprint_decoder = FingerprintDecoder(emb_dim, fingerprint_dim)
+
+    def forward(self, *argv):
+        if len(argv) == 2:
+            x, edge_index = argv[0], argv[1]
+
+        else:
+            raise ValueError("unmatched number of arguments.")
+       node_representation = self.gnn(x, edge_index) 
+       score_fingerprint= self.linear_pred_fingerprint(node_representation)
+       fingerprint_rec = self.fingerprint_decoder(score_fingerprint)
+
+
+class FingerprintDecoder(nn.Module):
+    def __init__(self, n_in, n_out, dropout=0.1):
+        # n_in is the same as the hidden representation of the VGAE.
+        super(FingerprintDecoder, self).__init__()
+        if n_out > n_in:
+            n_hidden = n_out // 2
+        else:
+            n_hidden = n_in // 2
+        self.fc1 = nn.Linear(n_in, n_hidden)
+        self.fc2 = nn.Linear(n_hidden, n_out)
+        self.dropout = dropout
+
+    def forward(self, x):
+        # input is hidden representation which has the shape of [None, 1, Hidden] 
+        # --> [None, 1, this hidden] --> [None, 1, output dim] 
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = F.dropout(x, self.dropout, training=self.training)
+        x = self.fc2(x)
+        # this is different to Yang's network as we are directly processing based on the N*hidden output of VGAE
+        # x = torch.mean(x, -2)
+        return x
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
