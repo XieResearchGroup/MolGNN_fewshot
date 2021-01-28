@@ -334,7 +334,7 @@ class MoleculeDataset(InMemoryDataset):
         for key in self.data.keys:
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
-            s[data.cat_dim(key, item)] = slice(slices[idx], slices[idx + 1])
+            s[data.__cat_dim__(key, item)] = slice(slices[idx], slices[idx + 1])
             data[key] = item[s]
         return data
 
@@ -347,7 +347,7 @@ class MoleculeDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return "geometric_data_processed.pt"
+        return "data.pt"
 
     def download(self):
         raise NotImplementedError(

@@ -38,22 +38,22 @@ class GINConv(MessagePassing):
         torch.nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
         self.aggr = aggr
 
-    def forward(self, x, edge_index, edge_attr):
+    def forward(self, x, edge_index):
         #add self loops in the edge space
         edge_index = add_self_loops(edge_index, num_nodes = x.size(0))
 
         #add features corresponding to self-loop edges.
         self_loop_attr = torch.zeros(x.size(0), 2)
         self_loop_attr[:,0] = 4 #bond type for self-loop edge
-        self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
-        edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
+        #self_loop_attr = self_loop_attr.to(edge_attr).to(edge_attr.dtype)
+        #edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
 
-        edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
+        #edge_embeddings = self.edge_embedding1(edge_attr) + self.edge_embedding2(edge_attr)
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x)
 
-    def message(self, x_j, edge_attr):
-        return x_j + edge_attr
+    def message(self, x_j):
+        return x_j
 
     def update(self, aggr_out):
         return self.mlp(aggr_out)
@@ -149,7 +149,7 @@ class GATConv(MessagePassing):
         edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
         x = self.weight_linear(x).view(-1, self.heads, self.emb_dim)
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate( edge_index[0], x=x, edge_attr=edge_embeddings)
 
     def message(self, edge_index, x_i, x_j, edge_attr):
         edge_attr = edge_attr.view(-1, self.heads, self.emb_dim)
@@ -266,18 +266,30 @@ class GNN(torch.nn.Module):
     #def forward(self, x, edge_index, edge_attr):
     def forward(self, *argv):
         if len(argv) == 2:
-            x, edge_index, edge_attr = argv[0], argv[1]
+            x, edge_index = argv[0], argv[1]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+            x, edge_index = data.x, data.edge_index
         else:
             raise ValueError("unmatched number of arguments.")
-
-        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1]) + self.x_embedding3(x[:,2]) + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
-
+        
+        x = torch.tensor(x).long()
+        #print(x.size())
+        #print(x[:,1])
+        #print(x[:,2])
+        #print(self.x_embedding1)
+        #print(self.x_embedding1(x[:,0]))
+        #print(self.x_embedding2(x[:,1]))
+    #print(self.x_embedding3(x[:,2]))
+        #print(self.x_embedding4(x[:,3]))
+        #print(self.x_embedding5(x[:,4]))
+        #print(self.x_embedding6(x[:,5]))
+    # temporary solution for now 
+        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])  + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+    
         h_list = [x]
         for layer in range(self.num_layer):
-            h = self.gnns[layer](h_list[layer], edge_index, edge_attr)
+            h = self.gnns[layer](h_list[layer], edge_index)
             h = self.batch_norms[layer](h)
             #h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
             if layer == self.num_layer - 1:
@@ -389,7 +401,7 @@ class GNN_fingerprint(torch.nn.Module):
     Args:
         num_layer (int): the number of GNN layers
         emb_dim (int): dimensionality of embeddings
-        fingerprint_dim (int): dimensinality of fingerprint 
+        num_tasks (int): number of tasks in multi-task learning scenario
         drop_ratio (float): dropout rate
         JK (str): last, concat, max or sum.
         graph_pooling (str): sum, mean, max, attention, set2set
@@ -398,8 +410,8 @@ class GNN_fingerprint(torch.nn.Module):
     See https://arxiv.org/abs/1810.00826
     JK-net: https://arxiv.org/abs/1806.03536
     """
-    def __init__(self, num_layer, emb_dim,fingerprint_dim,  JK = "last", drop_ratio = 0,  gnn_type = "gin"):
-        super(GNN_graphpred, self).__init__()
+    def __init__(self, num_layer, emb_dim,fingerprint_dim,  JK = "last", graph_pooling = "mean" , drop_ratio = 0,  gnn_type = "gin"):
+        super(GNN_fingerprint, self).__init__()
         self.num_layer = num_layer
         self.drop_ratio = drop_ratio
         self.JK = JK
@@ -415,18 +427,40 @@ class GNN_fingerprint(torch.nn.Module):
 
         self.fingerprint_decoder = FingerprintDecoder(emb_dim, fingerprint_dim)
 
-    def forward(self, *argv):
-        if len(argv) == 2:
-            x, edge_index = argv[0], argv[1]
+       #Different kind of graph pooling
+        if graph_pooling == "sum":
+            self.pool = global_add_pool
+        elif graph_pooling == "mean":
+            self.pool = global_mean_pool
+        elif graph_pooling == "max":
+            self.pool = global_max_pool
+        elif graph_pooling == "attention":
+            if self.JK == "concat":
+                self.pool = GlobalAttention(gate_nn = torch.nn.Linear((self.num_layer + 1) * emb_dim, 1))
+            else:
+                self.pool = GlobalAttention(gate_nn = torch.nn.Linear(emb_dim, 1))
+        else:
+            raise ValueError("Invalid graph pooling type.")
+    
+    def from_pretrained(self, model_file):
+        #self.gnn = GNN(self.num_layer, self.emb_dim, JK = self.JK, drop_ratio = self.drop_ratio)
+        self.gnn.load_state_dict(torch.load(model_file))
 
+    def forward(self, *argv):
+        if len(argv) == 3:
+            x, edge_index, batch = argv[0], argv[1], argv[2]
+        elif len(argv) == 1:
+            data = argv[0]
+            x, edge_index, batch= data.x, data.edge_index, data.batch
         else:
             raise ValueError("unmatched number of arguments.")
-       node_representation = self.gnn(x, edge_index) 
-       score_fingerprint= self.linear_pred_fingerprint(node_representation)
-       fingerprint_rec = self.fingerprint_decoder(score_fingerprint)
+        node_representation = self.gnn(x, edge_index) 
+        score_fingerprint= self.linear_pred_fingerprint(self.pool(node_representation,batch))
+        fingerprint_rec = self.fingerprint_decoder(score_fingerprint)
+        return fingerprint_rec
 
 
-class FingerprintDecoder(nn.Module):
+class FingerprintDecoder(torch.nn.Module):
     def __init__(self, n_in, n_out, dropout=0.1):
         # n_in is the same as the hidden representation of the VGAE.
         super(FingerprintDecoder, self).__init__()
@@ -434,8 +468,8 @@ class FingerprintDecoder(nn.Module):
             n_hidden = n_out // 2
         else:
             n_hidden = n_in // 2
-        self.fc1 = nn.Linear(n_in, n_hidden)
-        self.fc2 = nn.Linear(n_hidden, n_out)
+        self.fc1 = torch.nn.Linear(n_in, n_hidden)
+        self.fc2 = torch.nn.Linear(n_hidden, n_out)
         self.dropout = dropout
 
     def forward(self, x):
