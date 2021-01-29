@@ -77,6 +77,7 @@ def eval (args, model,device, loader,criterion):
 def main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of fingerprint')
+
     parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
     parser.add_argument('--batch_size', type=int, default=32,
@@ -99,12 +100,15 @@ def main():
                         help='dropout ratio (default: 0.2)')
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
+    parser.add_argument('--datapath', type=str, default = '/workspace/new_DeepChem', help='root directory of dataset. For now, only fiingerprint.')
     parser.add_argument('--dataset', type=str, default = 'BACEFP', help='root directory of dataset. For now, only fiingerprint.')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--input_model_file', type=str, default = 'chemblFiltered_pretrained_model_with_contextPred', help='filename to read the model (if there is any)')
     parser.add_argument('--output_model_file', type = str, default = '', help='filename to output the pre-trained model')
     parser.add_argument('--num_workers', type=int, default = 0, help='number of workers for dataset loading')
     args = parser.parse_args()
+    print("show all arguments configuration...")
+    print(args)
 
 
     torch.manual_seed(0)
@@ -113,7 +117,7 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
 
-    dataset = MoleculeDataset("dataset/" + args.dataset)
+    dataset = MoleculeDataset(args.datapath +'/'+ args.dataset)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     #model = GNN_fingerprint(5, 300,fingerprint_dim=740, JK = 'last',  graph_pooling = "mean"  , drop_ratio = 0.2,  gnn_type = 'gin') 
     model =  GNN_fingerprint (args.num_layer, args.emb_dim, args.fingerprint_dim, args.JK, args.graph_pooling, args.dropout_ratio, args.gnn_type)
@@ -130,16 +134,17 @@ def main():
         print("====epoch " + str(epoch))
 
         train(args, model, device, loader, optimizer,criterion=nn.BCEWithLogitsLoss(reduction = "none"))
-        #print("====Evaluation")
+        print("====Evaluation")
 
         #train_acc = 0
         #train_ap = 0
-        #roc = eval(model, device, loader, criterion=nn.BCEWithLogitsLoss(reduction = "none"))
+        roc = eval(args, model, device, loader, criterion=nn.BCEWithLogitsLoss(reduction = "none"))
 
     if not args.output_model_file == "":
         torch.save(model.gnn.state_dict(), args.output_model_file + ".pth")  
 
 if __name__ == "__main__":
     main()
+
 
 

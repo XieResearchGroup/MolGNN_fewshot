@@ -50,8 +50,8 @@ class GINConv(MessagePassing):
 
         #edge_embeddings = self.edge_embedding1(edge_attr) + self.edge_embedding2(edge_attr)
 
-        return self.propagate(edge_index[0], x=x)
-
+        #return self.propagate(edge_index[0], x=x)
+        return self.propagate(self.aggr, edge_index, x=x)
     def message(self, x_j):
         return x_j
 
@@ -273,10 +273,9 @@ class GNN(torch.nn.Module):
         else:
             raise ValueError("unmatched number of arguments.")
         
-        x = torch.tensor(x).long()
-        #print(x.size())
-        #print(x[:,1])
-        #print(x[:,2])
+        x = x.to(torch.long)
+        # print(f'type of x: {x.type()}')  
+        #print(f'size of x:{x.size()})
         #print(self.x_embedding1)
         #print(self.x_embedding1(x[:,0]))
         #print(self.x_embedding2(x[:,1]))
@@ -284,9 +283,12 @@ class GNN(torch.nn.Module):
         #print(self.x_embedding4(x[:,3]))
         #print(self.x_embedding5(x[:,4]))
         #print(self.x_embedding6(x[:,5]))
-    # temporary solution for now 
-        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])  + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
-    
+
+    #detected something wrong(out of index error) with embedding3, remove it from concatenate temporarily 
+       
+        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+#        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])+ self.x_embedding3(x[:,2])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+       
         h_list = [x]
         for layer in range(self.num_layer):
             h = self.gnns[layer](h_list[layer], edge_index)
