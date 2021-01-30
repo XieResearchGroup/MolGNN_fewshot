@@ -65,13 +65,24 @@ def eval (args, model,device, loader,criterion):
     #print(labels_all[:5],preds_all[:5])
     y_true = torch.cat(y_true, dim=0).cpu().numpy()
     y_scores = torch.cat(y_scores, dim=0).cpu().numpy()
-
-    roc = roc_auc_score(y_true, y_scores)
+    roc_list = []
+    print(f'y_true.shape:{y_true.shape}')
+    for i in range(y_true.shape[1]):
+        # AUC is only defined when there is at least one positive and one negative data.
+        if np.sum(y_true[:, i] == 1) > 0 and np.sum(y_true[:, i] == 0) > 0:
+           # is_valid = y_true[:, i]>0
+           # print(f'what is valid {is_valid},unique class of y_true[:,i] :{np.unique(y_true[:, i])}')
+           # print(f'y_true[is_valid, i]:{y_true[is_valid, i]},unique class :{np.unique(y_true[is_valid, i])}')
+            roc_list.append(
+                roc_auc_score(y_true[:, i], y_scores[:, i])
+            )
+    print(roc_list)
+    #roc = roc_auc_score(y_true, y_scores)
   
 
 
    # there are some issues on my local computer, will have to solve later 
-    return roc
+    return roc_list
 
  
 def main():

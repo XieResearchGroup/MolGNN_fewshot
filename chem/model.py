@@ -273,21 +273,26 @@ class GNN(torch.nn.Module):
         else:
             raise ValueError("unmatched number of arguments.")
         
+
         x = x.to(torch.long)
+        # to get rid of negative values of formal charge
+        for i in x[:,2]:
+        	i += 2
+#        print(f'before add two{x[:,3]}')
+#        x=x+1
+ #       print (f'after {x[:,3]}')
         # print(f'type of x: {x.type()}')  
         #print(f'size of x:{x.size()})
         #print(self.x_embedding1)
-        #print(self.x_embedding1(x[:,0]))
-        #print(self.x_embedding2(x[:,1]))
-    #print(self.x_embedding3(x[:,2]))
-        #print(self.x_embedding4(x[:,3]))
-        #print(self.x_embedding5(x[:,4]))
-        #print(self.x_embedding6(x[:,5]))
-
-    #detected something wrong(out of index error) with embedding3, remove it from concatenate temporarily 
+#        print(f'self.x_embedding1 (x[:,0]):{self.x_embedding1(x[:,0])}')
+#        print(f'self.x_embedding2 (x[:,1]):{self.x_embedding2(x[:,1])}')
+#        print(f'self.x_embedding3 (x[:,2])the formal charge num:{self.x_embedding3(x[:,2])}')
+#        print(f'self.x_embedding4 (x[:,3]):{self.x_embedding4(x[:,3])}')
+#        print(f'self.x_embedding5 (x[:,4]):{self.x_embedding5(x[:,4])}')
+#        print(f'self.x_embedding6 (x[:,5]):{self.x_embedding6(x[:,5])}')   
        
-        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
-#        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])+ self.x_embedding3(x[:,2])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+#        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
+        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])+ self.x_embedding3(x[:,2])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
        
         h_list = [x]
         for layer in range(self.num_layer):
