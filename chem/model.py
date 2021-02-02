@@ -51,7 +51,7 @@ class GINConv(MessagePassing):
         edge_embeddings = self.edge_embedding1(edge_attr) + self.edge_embedding2(edge_attr)
 
         #return self.propagate(edge_index[0], x=x)
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
     def message(self, x_j):
         return x_j
 
@@ -293,10 +293,12 @@ class GNN(torch.nn.Module):
        
 #        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
         x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1])+ self.x_embedding3(x[:,2])   + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
-       
+#        print(f'shape of x {x.size()},x[0] :{x[0]}, edge attribute :{edge_attr[0]}')
         h_list = [x]
         for layer in range(self.num_layer):
-            h = self.gnns[layer](h_list[layer], edge_index, edge_attr)
+            print(f' h list[layer], edge_index, edge_attri:{h_list[layer].size()}{h_list[layer]}###{edge_index.size()}{edge_index}####{edge_attr.size()}{edge_attr}')
+            h = self.gnns[layer] (h_list[layer], edge_index, edge_attr)
+            print(f'argv infomation{argv[0]}, {argv[1]}, {argv[2]},length of argv{len(argv)}')
             h = self.batch_norms[layer](h)
             #h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
             if layer == self.num_layer - 1:

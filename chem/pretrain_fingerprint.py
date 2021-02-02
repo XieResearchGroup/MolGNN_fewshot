@@ -24,6 +24,7 @@ def train( args, model, device, loader, optimizer, criterion):
 
     for step, batch in enumerate(tqdm(loader,desc='Iteration')):
         batch = batch.to(device)
+        print(f'this batch :{batch}')
         pred = model (batch.x, batch.edge_index, batch.edge_attr, batch.batch)
         y = batch.y
         y = y.float()
@@ -138,6 +139,7 @@ def main():
 
 
     model.to(device)
+    print(f'model architecture:{model}')
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay)  
 
 
