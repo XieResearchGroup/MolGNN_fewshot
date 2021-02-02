@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from model import GNN, GNN_graphpred
+from model_origin import GNN, GNN_graphpred
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from splitters import scaffold_split

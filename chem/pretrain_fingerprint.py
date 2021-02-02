@@ -24,7 +24,7 @@ def train( args, model, device, loader, optimizer, criterion):
 
     for step, batch in enumerate(tqdm(loader,desc='Iteration')):
         batch = batch.to(device)
-        pred = model (batch.x, batch.edge_index, batch.batch)
+        pred = model (batch.x, batch.edge_index, batch.edge_attr, batch.batch)
         y = batch.y
         y = y.float()
         pred = pred.float()
@@ -35,7 +35,7 @@ def train( args, model, device, loader, optimizer, criterion):
         # backprop
         optimizer.zero_grad()
         #loss.backward()
-        loss.sum().backward()
+        loss.backward()
         optimizer.step()
 
 
@@ -48,7 +48,7 @@ def eval (args, model,device, loader,criterion):
         batch = batch.to(device)
 
         with torch.no_grad():
-            pred = model(batch.x, batch.edge_index, batch.batch)
+            pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
 
         y_true.append(batch.y.cpu())
         y_scores.append(pred.cpu())
@@ -112,7 +112,7 @@ def main():
     parser.add_argument('--JK', type=str, default="last",
                         help='how the node features across layers are combined. last, sum, max or concat')
     parser.add_argument('--datapath', type=str, default = '/workspace/new_DeepChem', help='root directory of dataset. For now, only fiingerprint.')
-    parser.add_argument('--dataset', type=str, default = 'BACEFP', help='root directory of dataset. For now, only fiingerprint.')
+    parser.add_argument('--dataset', type=str, default = 'chembl', help='root directory of dataset. For now, only fiingerprint.')
     parser.add_argument('--gnn_type', type=str, default="gin")
     parser.add_argument('--input_model_file', type=str, default = 'chemblFiltered_pretrained_model_with_contextPred', help='filename to read the model (if there is any)')
     parser.add_argument('--output_model_file', type = str, default = '', help='filename to output the pre-trained model')

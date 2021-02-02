@@ -16,7 +16,8 @@ do
 
 #model_file=supervised_${unsup}
 #model ='/workplace/Weihua_b/context_pretrained_model_2.pth'
-python finetune.py --input_model_file /context_pretrained_model_2.pth --split $split --filename outlogs --device $device --runseed $runseed --gnn_type gin --dataset $dataset --epochs 2
+python finetune.py --input_model_file trained_model/Sup_pretrained_bace.pth --split $split --filename ../../TFlogs --device $device --runseed $runseed --gnn_type gin --dataset $dataset --epochs 100 \
+> outlogs0129/fintune_bace 2>&1 &
 done
 
 #python finetune.py --split $split --filename ${dataset}/gin_nopretrain --device $device --runseed $runseed --gnn_type gin --dataset $dataset
