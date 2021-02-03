@@ -41,19 +41,18 @@ class GINConv(MessagePassing):
     def forward(self, x, edge_index):
         #add self loops in the edge space
         edge_index = add_self_loops(edge_index, num_nodes = x.size(0))
-
         #add features corresponding to self-loop edges.
         self_loop_attr = torch.zeros(x.size(0), 2)
         self_loop_attr[:,0] = 4 #bond type for self-loop edge
-        self_loop_attr = self_loop_attr.to(edge_attr).to(edge_attr.dtype)
-        edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
+        #self_loop_attr = self_loop_attr.to(edge_attr).to(edge_attr.dtype)
+        #edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
 
-        edge_embeddings = self.edge_embedding1(edge_attr) + self.edge_embedding2(edge_attr)
+        #edge_embeddings = self.edge_embedding1(edge_attr) + self.edge_embedding2(edge_attr)
 
-        #return self.propagate(edge_index[0], x=x)
-        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
+        return self.propagate(self.aggr, edge_index, x=x)
+        #return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
     def message(self, x_j):
-        return x_j
+        return x_j 
 
     def update(self, aggr_out):
         return self.mlp(aggr_out)
@@ -265,25 +264,26 @@ class GNN(torch.nn.Module):
 
     #def forward(self, x, edge_index, edge_attr):
     def forward(self, *argv):
-        if len(argv) == 3:
-            x, edge_index,edge_attr = argv[0], argv[1], argv[2]
+        if len(argv) == 2:
+            x, edge_index = argv[0], argv[1]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+            x, edge_index = data.x, data.edge_index
         else:
             raise ValueError("unmatched number of arguments.")
         
 
-       # x = x.to(torch.long)
+        x = x.to(torch.long)
         # to get rid of negative values of formal charge
-       # for i in x[:,2]:
-        #	i += 2
+        for i in x[:,2]:
+	
+        	i += 4
 #        print(f'before add two{x[:,3]}')
 #        x=x+1
  #       print (f'after {x[:,3]}')
         # print(f'type of x: {x.type()}')  
         #print(f'size of x:{x.size()})
-        #print(self.x_embedding1)
+#        print(f'formal charge{x[:,2]}')
 #        print(f'self.x_embedding1 (x[:,0]):{self.x_embedding1(x[:,0])}')
 #        print(f'self.x_embedding2 (x[:,1]):{self.x_embedding2(x[:,1])}')
 #        print(f'self.x_embedding3 (x[:,2])the formal charge num:{self.x_embedding3(x[:,2])}')
@@ -296,9 +296,9 @@ class GNN(torch.nn.Module):
 #        print(f'shape of x {x.size()},x[0] :{x[0]}, edge attribute :{edge_attr[0]}')
         h_list = [x]
         for layer in range(self.num_layer):
-            print(f' h list[layer], edge_index, edge_attri:{h_list[layer].size()}{h_list[layer]}###{edge_index.size()}{edge_index}####{edge_attr.size()}{edge_attr}')
-            h = self.gnns[layer] (h_list[layer], edge_index, edge_attr)
-            print(f'argv infomation{argv[0]}, {argv[1]}, {argv[2]},length of argv{len(argv)}')
+           # print(f' h list[layer], edge_index, edge_attri:{h_list[layer].size()}{h_list[layer]}###{edge_index.size()}{edge_index}####{edge_attr.size()}{edge_attr}')
+            h = self.gnns[layer] (h_list[layer], edge_index)
+            # print(f'argv infomation{argv[0]}, {argv[1]}, {argv[2]},length of argv{len(argv)}')
             h = self.batch_norms[layer](h)
             #h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
             if layer == self.num_layer - 1:
@@ -456,14 +456,14 @@ class GNN_fingerprint(torch.nn.Module):
         self.gnn.load_state_dict(torch.load(model_file))
 
     def forward(self, *argv):
-        if len(argv) == 4:
-            x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
+        if len(argv) == 3:
+            x, edge_index, batch = argv[0], argv[1], argv[2]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index,edge_attr, batch= data.x, data.edge_index, data.edge_attr, data.batch
+            x, edge_index, batch= data.x, data.edge_index, data.batch
         else:
             raise ValueError("unmatched number of arguments.")
-        node_representation = self.gnn(x, edge_index, edge_attr) 
+        node_representation = self.gnn(x, edge_index) 
         score_fingerprint= self.linear_pred_fingerprint(self.pool(node_representation,batch))
         fingerprint_rec = self.fingerprint_decoder(score_fingerprint)
         return fingerprint_rec

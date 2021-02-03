@@ -2,7 +2,7 @@ import argparse
 
 from loader import MoleculeDataset
 from torch_geometric.data import DataLoader
-
+from Chembl_loader import ChemBLFP 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -24,8 +24,9 @@ def train( args, model, device, loader, optimizer, criterion):
 
     for step, batch in enumerate(tqdm(loader,desc='Iteration')):
         batch = batch.to(device)
-        print(f'this batch :{batch}')
-        pred = model (batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+#        print(f'this batch :{batch}')
+#        pred = model (batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+        pred = model (batch.x, batch.edge_index,  batch.batch)
         y = batch.y
         y = y.float()
         pred = pred.float()
@@ -36,7 +37,7 @@ def train( args, model, device, loader, optimizer, criterion):
         # backprop
         optimizer.zero_grad()
         #loss.backward()
-        loss.backward()
+        loss.sum().backward()
         optimizer.step()
 
 
@@ -49,8 +50,8 @@ def eval (args, model,device, loader,criterion):
         batch = batch.to(device)
 
         with torch.no_grad():
-            pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-
+           # pred = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+            pred = model (batch.x, batch.edge_index,  batch.batch) 
         y_true.append(batch.y.cpu())
         y_scores.append(pred.cpu())
         y = batch.y
@@ -129,7 +130,7 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
 
-    dataset = MoleculeDataset(args.datapath +'/'+ args.dataset)
+    dataset = ChemBLFP(args.datapath +'/'+ args.dataset)
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     #model = GNN_fingerprint(5, 300,fingerprint_dim=740, JK = 'last',  graph_pooling = "mean"  , drop_ratio = 0.2,  gnn_type = 'gin') 
     model =  GNN_fingerprint (args.num_layer, args.emb_dim, args.fingerprint_dim, args.JK, args.graph_pooling, args.dropout_ratio, args.gnn_type)
@@ -139,7 +140,7 @@ def main():
 
 
     model.to(device)
-    print(f'model architecture:{model}')
+#    print(f'model architecture:{model}')
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay)  
 
 
@@ -147,11 +148,11 @@ def main():
         print("====epoch " + str(epoch))
 
         train(args, model, device, loader, optimizer,criterion=nn.BCEWithLogitsLoss(reduction = "none"))
-        print("====Evaluation")
+#        print("====Evaluation")
 
         #train_acc = 0
         #train_ap = 0
-        roc = eval(args, model, device, loader, criterion=nn.BCEWithLogitsLoss(reduction = "none"))
+    #    roc = eval(args, model, device, loader, criterion=nn.BCEWithLogitsLoss(reduction = "none"))
 
     if not args.output_model_file == "":
         torch.save(model.gnn.state_dict(), args.output_model_file + ".pth")  
