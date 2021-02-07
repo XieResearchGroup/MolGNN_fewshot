@@ -293,7 +293,7 @@ def main():
         gnn_type=args.gnn_type,
     )
     if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file)
+        model.from_pretrained(args.input_model_file+ ".pth")
 
     model.to(device)
 
@@ -316,7 +316,7 @@ def main():
     test_acc_list = []
 
     if not args.filename == "":
-        fname = "runs/finetune_cls_runseed" + str(args.runseed) + "/" + args.filename
+        fname = "/workspace/Weihua_b/TFlogs/" + str(args.runseed) + "/" + args.filename
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)
