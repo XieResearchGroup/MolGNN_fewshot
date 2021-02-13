@@ -48,7 +48,9 @@ class GINConv(MessagePassing):
 
         edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        #return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
+
 
     def message(self, x_j, edge_attr):
         return x_j + edge_attr

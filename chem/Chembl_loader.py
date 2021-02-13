@@ -14,7 +14,7 @@ class ChemBLFP(Dataset):
             root = osp.join("data", "ChemBL")
         self.n_workers = n_workers
         super().__init__(root, transform, pre_transform)
-        self.raw_dir = self.root
+        #self.raw_dir = self.root
 #    @property
 #    def raw_dir(self):
 #        return self.root

@@ -316,7 +316,7 @@ def main():
     test_acc_list = []
 
     if not args.filename == "":
-        fname = "/workspace/Weihua_b/TFlogs/" + str(args.runseed) + "/" + args.filename
+        fname = "/raid/home/yoyowu/Weihua_b/TFlogs_1/" + str(args.runseed) + "/" + args.filename
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)
