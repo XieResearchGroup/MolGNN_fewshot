@@ -32,7 +32,8 @@ class ONEHOT_ENCODING(object):
                 "regenerate ONEHOTENCODING_CODEBOOKS"
             )
             print(ONEHOTENCODING_CODEBOOKS)
-            
+            return 
+        
         features_all = [data.x.numpy() for data in self.dataset]
         features = np.vstack(features_all)
         node_attributes_cnt = {}
