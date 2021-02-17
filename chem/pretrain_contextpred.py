@@ -1,7 +1,7 @@
 import os
 import argparse
 
-from .loader import MoleculeDataset
+from loader import MoleculeDataset
 
 import torch
 import torch.nn as nn
@@ -10,11 +10,11 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from .model import GNN
+from model import GNN
 
-from .util import ExtractSubstructureContextPair
+from util import ExtractSubstructureContextPair
 
-from .dataloader import DataLoaderSubstructContext
+from dataloader import DataLoaderSubstructContext
 
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
