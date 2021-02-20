@@ -1,12 +1,13 @@
-
 import os.path as osp
 import multiprocessing as mp
+
 import torch
-from torch_geometric.data import Data
 from torch_geometric.data import Dataset
-#from chemreader.readers import Smiles
+from chemreader.readers import Smiles
 from tqdm import tqdm
-#from FP_utils import get_filtered_fingerprint
+
+from .util import get_filtered_fingerprint
+
 
 class ChemBLFP(Dataset):
     def __init__(self, root=None, transform=None, pre_transform=None, n_workers=4):
@@ -14,10 +15,11 @@ class ChemBLFP(Dataset):
             root = osp.join("data", "ChemBL")
         self.n_workers = n_workers
         super().__init__(root, transform, pre_transform)
-        #self.raw_dir = self.root
-#    @property
-#    def raw_dir(self):
-#        return self.root
+
+    @property
+    def raw_dir(self):
+        return self.root
+
     @property
     def raw_file_names(self):
         return ["smiles.csv"]
@@ -25,10 +27,12 @@ class ChemBLFP(Dataset):
     @property
     def processed_file_names(self):
         return ["data_1.pt", "data_2.pt", "data_430000.pt"]
+
     def download(self):
         """ Get raw data and save to raw directory.
         """
         pass
+
     def save_data(self, q):
         """ Save graphs in q to data.pt files.
         """
@@ -37,16 +41,15 @@ class ChemBLFP(Dataset):
             if data == "END":
                 break
             graph, label, idx = data
-            x = torch.tensor(graph["atom_features"], dtype=torch.float)
-            edge_idx = graph["adjacency"].tocoo()
-            edge_idx = torch.tensor([edge_idx.row, edge_idx.col], dtype=torch.long)
-            dt = Data(x=x, edge_index=edge_idx, y=label)
-            torch.save(dt, osp.join(self.processed_dir, "data_{}.pt".format(idx)))
-            print("graph #{} saved to data_{}.pt{}".format(idx, idx, " "*40), end="\r")
+            graph.y = label
+            torch.save(graph, osp.join(self.processed_dir, f"data_{idx}.pt"))
+            print(
+                "graph #{} saved to data_{}.pt{}".format(idx, idx, " " * 40), end="\r"
+            )
 
     def create_graph(self, smi, idx, q):
         try:
-            graph = Smiles(smi).to_graph(sparse=True)
+            graph = Smiles(smi).to_graph(sparse=True, pyg=True)
         except AttributeError:
             return
         fp = get_filtered_fingerprint(smi)
@@ -76,6 +79,9 @@ class ChemBLFP(Dataset):
         q.put("END")
         writer.join()
 
+    def len(self):
+        return self.__len__()
+
     def _get_len(self):
         n = 0
         with open(self.raw_paths[0]) as f:
@@ -89,8 +95,9 @@ class ChemBLFP(Dataset):
         except AttributeError:
             self._data_len = self._get_len()
             return self._data_len
+
     def get(self, idx):
-        data = torch.load(osp.join(self.processed_dir, "data_{}.pt".format(idx)))
+        data = torch.load(osp.join(self.processed_dir, f"data_{idx}.pt"))
         return data
 
     def _get_data(self):
@@ -101,10 +108,12 @@ class ChemBLFP(Dataset):
                 yield smiles.strip()
 
 
-#test the class
-#from torch_geometric.data import DataLoader
-#chembl = ChemBLFP('/workspace/new_DeepChem/ChemBL')
-#print (chembl)
-#loader_c= DataLoader(chembl, batch_size=32, shuffle=True, num_workers =0)
-#for a,b in enumerate(loader_c):
-#    print(b)
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument("--root", type=str, default=None)
+    parser.add_argument("--workers", type=int, default=4)
+    args = parser.parse_args()
+    chembl = ChemBLFP(root=args.root)
+    print(chembl[0])

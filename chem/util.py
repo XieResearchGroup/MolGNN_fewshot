@@ -3,10 +3,66 @@ import random
 
 import networkx as nx
 from rdkit.Chem import AllChem
+import numpy as np
 
-from loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
+from .loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
 
-from loader import MoleculeDataset
+from .loader import MoleculeDataset
+
+
+def get_filtered_fingerprint(smiles):
+    """ Get filtered PubChem fingerprint. The digits related to elements other than C,
+    H, O, N, S, F, Cl, and Br are discarded.
+
+    Args:
+        smiles (str): SMILES string.
+
+    Return:
+        fp (np.ndarray): The filtered PubChem fingerprint as a vector.
+        length (int): length of the filtered vector.
+    """
+    from PyFingerprint.All_Fingerprint import get_fingerprint
+
+    fp = get_fingerprint(smiles, fp_type="pubchem", output="vector")
+    del_pos = (
+        [
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            41,
+            42,
+            46,
+            47,
+            48,
+            295,
+            296,
+            298,
+            303,
+            304,
+            348,
+            354,
+            369,
+            407,
+            411,
+            415,
+            456,
+            525,
+            627,
+        ]
+        + list(range(49, 115))
+        + list(range(263, 283))
+        + list(range(288, 293))
+        + list(range(310, 317))
+        + list(range(318, 327))
+        + list(range(327, 332))
+        + list(range(424, 427))
+    )
+    fp = np.delete(fp, del_pos)
+    return fp
 
 
 def check_same_molecules(s1, s2):
@@ -42,10 +98,8 @@ class NegativeEdge:
             node1 = redandunt_sample[0, i].cpu().item()
             node2 = redandunt_sample[1, i].cpu().item()
             edge_str = str(node1) + "," + str(node2)
-            if (
-                not edge_str in edge_set
-                and not edge_str in sampled_edge_set
-                and not node1 == node2
+            if not any(
+                [edge_str in edge_set, edge_str in sampled_edge_set, node1 == node2]
             ):
                 sampled_edge_set.add(edge_str)
                 sampled_ind.append(i)
@@ -99,7 +153,7 @@ class ExtractSubstructureContextPair:
         data.overlap_context_substruct_idx
         """
         num_atoms = data.x.size(0)
-        if root_idx == None:
+        if root_idx is None:
             root_idx = random.sample(range(num_atoms), 1)[0]
 
         G = graph_data_obj_to_nx_simple(data)  # same ordering as input data obj
