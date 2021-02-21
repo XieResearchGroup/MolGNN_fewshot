@@ -1,5 +1,6 @@
 import torch
 import random
+import collections
 
 import networkx as nx
 from rdkit.Chem import AllChem
@@ -63,15 +64,6 @@ def get_filtered_fingerprint(smiles):
     )
     fp = np.delete(fp, del_pos)
     return fp
-
-
-import os
-import numpy as np
-import collections
-import itertools
-
-
-
 
 
 def check_same_molecules(s1, s2):
@@ -362,22 +354,22 @@ class MaskAtom:
             self.mask_rate,
             self.mask_edge,
         )
-    
-    
 
-    
-ONEHOTENCODING_CODEBOOKS = {'atom_type': [4, 5, 6, 7, 8, 13, 14, 15, 16, 34, 49, 52], 
- 'degree': [1, 2, 3, 4, 5], 
- 'formal_charge': [4, 5, 6, 7, 8], 
- 'hybridization_type': [0, 1, 2, 3, 4], 
- 'aromatic': [0, 1], 
- 'chirality_type': [0, 1, 2]}
 
 class ONEHOT_ContextPair(object):
 
+    ONEHOTENCODING_CODEBOOKS = {
+        "atom_type": list(range(119)),
+        "degree": list(range(11)),
+        "formal_charge": list(range(11)),
+        "hybridization_type": list(range(7)),
+        "aromatic": [0, 1],
+        "chirality_type": [0, 1, 2, 3],
+    }
+
     def __init__(self, dataset, k, l1, l2):
 
-        self.dataset = dataset 
+        self.dataset = dataset
         self.k = k
         self.l1 = l1
         self.l2 = l2
@@ -391,63 +383,58 @@ class ONEHOT_ContextPair(object):
         if self.l2 == 0:
             self.l2 = -1
 
-        
-        self.FEATURE_NAMES =  [
-                "atom_type",
-                "degree",
-                "formal_charge",
-                "hybridization_type",
-                "aromatic",
-                "chirality_type",
-            ]
+        self.FEATURE_NAMES = [
+            "atom_type",
+            "degree",
+            "formal_charge",
+            "hybridization_type",
+            "aromatic",
+            "chirality_type",
+        ]
         self.ONEHOTENCODING = [0, 1, 2, 3, 4, 5]
-        
-        
+
     def get_CODEBOOKS(self):
-        global ONEHOTENCODING_CODEBOOKS
-        if ONEHOTENCODING_CODEBOOKS:
-            #print("ONEHOTENCODING_CODEBOOKS is available already, do not need to regenerate ONEHOTENCODING_CODEBOOKS")
-            #print(ONEHOTENCODING_CODEBOOKS)
-            return 
-        
+        if self.ONEHOTENCODING_CODEBOOKS:
+            # print("ONEHOTENCODING_CODEBOOKS is available already, do not need to
+            # regenerate ONEHOTENCODING_CODEBOOKS")
+            # print(ONEHOTENCODING_CODEBOOKS)
+            return
+
+        # print(f"generating ONEHOTENCODING_CODEBOOKS......")
         features_all = [data.x.numpy() for data in self.dataset]
         features = np.vstack(features_all)
         node_attributes_cnt = {}
         for j, col in enumerate(zip(*features)):
             node_attributes_cnt[self.FEATURE_NAMES[j]] = collections.Counter(col)
 
-        ONEHOTENCODING_CODEBOOKS.update({
-            feature_name: sorted(node_attributes_cnt[feature_name].keys())
-            for feature_name in self.FEATURE_NAMES} )
-            
-        #print(f"generating ONEHOTENCODING_CODEBOOKS......")
+        self.ONEHOTENCODING_CODEBOOKS.update(
+            {
+                feature_name: sorted(node_attributes_cnt[feature_name].keys())
+                for feature_name in self.FEATURE_NAMES
+            }
+        )
 
-        
-    def get_onehot_features(self,features):
+    def get_onehot_features(self, features):
         feature_one_hot = []
-        #print(f'input features{features}')
+        # print(f'input features{features}')
         for row in features.tolist():
             this_row = []
             for j, feature_val_before_onehot in enumerate(row):
-                onehot_code = ONEHOTENCODING_CODEBOOKS[self.FEATURE_NAMES[j]]
+                onehot_code = self.ONEHOTENCODING_CODEBOOKS[self.FEATURE_NAMES[j]]
                 onehot_val = [0.0] * len(onehot_code)
                 assert feature_val_before_onehot in onehot_code
-                onehot_val[onehot_code.index(feature_val_before_onehot)] = 1.0 
+                onehot_val[onehot_code.index(feature_val_before_onehot)] = 1.0
                 this_row += onehot_val
             feature_one_hot.append(this_row)
         return torch.Tensor(feature_one_hot)
 
-
     def __call__(self, data, root_idx=None):
 
         self.get_CODEBOOKS()
-        #print(f'before onehot data {data.x.numpy()}')
+        # print(f'before onehot data {data.x.numpy()}')
 
-        
-       
-        
         num_atoms = data.x.size(0)
-        if root_idx == None:
+        if root_idx is None:
             root_idx = random.sample(range(num_atoms), 1)[0]
 
         G = graph_data_obj_to_nx_simple(data)  # same ordering as input data obj
@@ -470,8 +457,8 @@ class ONEHOT_ContextPair(object):
             )  # need
             # to convert center idx from original graph node ordering to the
             # new substruct node ordering
-            
-            data.x_substruct= self.get_onehot_features(data.x_substruct.numpy())
+
+            data.x_substruct = self.get_onehot_features(data.x_substruct.numpy())
         # Get subgraphs that is between l1 and l2 hops away from the root node
         l1_node_idxes = nx.single_source_shortest_path_length(
             G, root_idx, self.l1
@@ -489,7 +476,7 @@ class ONEHOT_ContextPair(object):
             data.x_context = context_data.x
             data.edge_attr_context = context_data.edge_attr
             data.edge_index_context = context_data.edge_index
-            data.x_context= self.get_onehot_features(data.x_context.numpy()) 
+            data.x_context = self.get_onehot_features(data.x_context.numpy())
 
         # Get indices of overlapping nodes between substruct and context,
         # WRT context ordering
@@ -505,23 +492,20 @@ class ONEHOT_ContextPair(object):
             data.overlap_context_substruct_idx = torch.tensor(
                 context_substruct_overlap_idxes_reorder
             )
-        
 
-        
-        #print(f'after onehot data{onehot_features.size()}')
+        # print(f'after onehot data{onehot_features.size()}')
 
-        #print()
-        #print ( data )
+        # print()
+        # print ( data )
         return data
-  
-    
+
     def __repr__(self):
         return "{}(k={},l1={}, l2={})".format(
             self.__class__.__name__, self.k, self.l1, self.l2
         )
-    #def __repr__(self):
-     #   return f'{self.__class__.__name__}'
-        
+
+    # def __repr__(self):
+    #   return f'{self.__class__.__name__}'
 
 
 if __name__ == "__main__":
