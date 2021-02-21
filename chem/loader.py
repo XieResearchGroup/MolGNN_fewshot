@@ -68,7 +68,11 @@ def mol_to_graph_data_obj_simple(mol):
         atom_feature = (
             [allowable_features["possible_atomic_num_list"].index(atom.GetAtomicNum())]
             + [allowable_features["possible_degree_list"].index(atom.GetDegree())]
-            + [allowable_features["possible_formal_charge_list"].index(atom.GetFormalCharge())]
+            + [
+                allowable_features["possible_formal_charge_list"].index(
+                    atom.GetFormalCharge()
+                )
+            ]
             + [
                 allowable_features["possible_hybridization_list"].index(
                     atom.GetHybridization()
@@ -178,7 +182,7 @@ def graph_data_obj_to_nx_simple(data):
             formal_charge=formal_charge,
             hybrid=hybrid,
             aromatic=aromatic,
-            chirality=chirality
+            chirality=chirality,
         )
 
     # bonds
@@ -220,7 +224,7 @@ def nx_to_graph_data_obj_simple(G):
             node["formal_charge"],
             node["hybrid"],
             node["aromatic"],
-            node["chirality"]
+            node["chirality"],
         ]
         atom_features_list.append(atom_feature)
     x = torch.tensor(np.array(atom_features_list), dtype=torch.long)
@@ -365,7 +369,7 @@ class MoleculeDataset(InMemoryDataset):
             smiles_list = list(input_df["smiles"])
             zinc_id_list = list(input_df["zinc_id"])
             for i in tqdm(range(len(smiles_list))):
-#                 print(i, end="\r")
+                #                 print(i, end="\r")
                 s = smiles_list[i]
                 # each example contains a single species
                 try:
