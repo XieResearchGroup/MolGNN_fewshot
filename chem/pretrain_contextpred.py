@@ -1,24 +1,19 @@
 import os
 import argparse
 
-from loader import MoleculeDataset
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 from tqdm import tqdm
 import numpy as np
-
-from model import GNN_MLP
-
-from util import ONEHOT_ContextPair
-
-from dataloader import DataLoaderSubstructContext
-
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
-from ONEHOT import ONEHOT_ENCODING
+from .model import GNN_MLP
+from .loader import MoleculeDataset
+from .util import ONEHOT_ContextPair
+from .dataloader import DataLoaderSubstructContext
+
+# from .ONEHOT import ONEHOT_ENCODING
 
 
 def pool_func(x, batch, mode="sum"):
@@ -197,11 +192,12 @@ def main():
         "--emb_dim", type=int, default=64, help="embedding dimensions (default: 300)"
     )
     parser.add_argument(
-        "--node_feat_dim" , type=int, default=32, help="dimension of the node features. Note onehot encoding is applied if it's more than 6")
-    parser.add_argument(
-        "--edge_feat_dim",type=int, default=2, help="dimension ofo the edge features."
+        "--node_feat_dim", type=int, default=32, help="dimension of the node features.",
     )
-    
+    parser.add_argument(
+        "--edge_feat_dim", type=int, default=2, help="dimension ofo the edge features."
+    )
+
     parser.add_argument(
         "--dropout_ratio", type=float, default=0, help="dropout ratio (default: 0)"
     )
@@ -245,11 +241,9 @@ def main():
         help="number of workers for dataset loading",
     )
     args = parser.parse_args()
-    
+
     print("show all arguments configuration...")
     print(args)
-
-
 
     torch.manual_seed(0)
     np.random.seed(0)
@@ -268,12 +262,16 @@ def main():
     print("num layer: %d l1: %d l2: %d" % (args.num_layer, l1, l2))
 
     # set up dataset and transform function.
-    dataset_og = MoleculeDataset(root=args.dataset, dataset=os.path.basename(args.dataset) )
-  
+    dataset_og = MoleculeDataset(
+        root=args.dataset, dataset=os.path.basename(args.dataset)
+    )
+
     dataset = MoleculeDataset(
-        root = args.dataset,
+        root=args.dataset,
         dataset=os.path.basename(args.dataset),
-        transform=ONEHOT_ContextPair(dataset = dataset_og, k = args.num_layer, l1= l1, l2 =l2),
+        transform=ONEHOT_ContextPair(
+            dataset=dataset_og, k=args.num_layer, l1=l1, l2=l2
+        ),
     )
     loader = DataLoaderSubstructContext(
         dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
