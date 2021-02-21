@@ -90,7 +90,7 @@ class GINE(MessagePassing):
         # input convert
         self.edge_in_mlp = torch.nn.Sequential(
             torch.nn.Linear(edge_feat_dim, 2 * emb_dim),
-            torch.nn.Relu(),
+            torch.nn.ReLU(),
             torch.nn.Linear(2 * emb_dim, emb_dim),
         )
         # multi-layer perceptron
@@ -111,7 +111,7 @@ class GINE(MessagePassing):
         self_loop_attr[:, 0] = 4  # bond type for self-loop edge
         self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
         edge_attr = torch.cat((edge_attr, self_loop_attr), dim=0)
-
+        edge_attr = edge_attr.to(torch.float)       
         edge_attr = self.edge_in_mlp(edge_attr)
         return self.propagate(edge_index[0], x=x, edge_attr=edge_attr)
 
@@ -435,7 +435,7 @@ class GNN_MLP(torch.nn.Module):
         drop_ratio=0,
         gnn_type="gine",
     ):
-        super(GNN, self).__init__()
+        super(GNN_MLP, self).__init__()
         self.num_layer = num_layer
         self.drop_ratio = drop_ratio
         self.JK = JK
@@ -478,7 +478,8 @@ class GNN_MLP(torch.nn.Module):
             x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
         else:
             raise ValueError("unmatched number of arguments.")
-
+       
+        #x = x.to(torch.long)
         x = self.node_in_mlp(x)
         h_list = [x]
         for layer in range(self.num_layer):

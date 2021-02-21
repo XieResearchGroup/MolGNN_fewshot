@@ -347,7 +347,8 @@ class MoleculeDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return "data.pt"
+        #return "data.pt"
+        return "geometric_data_processed.pt"
 
     def download(self):
         raise NotImplementedError(

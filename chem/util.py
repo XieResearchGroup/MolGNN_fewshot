@@ -9,6 +9,15 @@ from loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
 from loader import MoleculeDataset
 
 
+import os
+import numpy as np
+import collections
+import itertools
+
+
+
+
+
 def check_same_molecules(s1, s2):
     mol1 = AllChem.MolFromSmiles(s1)
     mol2 = AllChem.MolFromSmiles(s2)
@@ -299,6 +308,166 @@ class MaskAtom:
             self.mask_rate,
             self.mask_edge,
         )
+    
+    
+
+    
+ONEHOTENCODING_CODEBOOKS = {'atom_type': [4, 5, 6, 7, 8, 13, 14, 15, 16, 34, 49, 52], 
+ 'degree': [1, 2, 3, 4, 5], 
+ 'formal_charge': [4, 5, 6, 7, 8], 
+ 'hybridization_type': [0, 1, 2, 3, 4], 
+ 'aromatic': [0, 1], 
+ 'chirality_type': [0, 1, 2]}
+
+class ONEHOT_ContextPair(object):
+
+    def __init__(self, dataset, k, l1, l2):
+
+        self.dataset = dataset 
+        self.k = k
+        self.l1 = l1
+        self.l2 = l2
+
+        # for the special case of 0, addresses the quirk with
+        # single_source_shortest_path_length
+        if self.k == 0:
+            self.k = -1
+        if self.l1 == 0:
+            self.l1 = -1
+        if self.l2 == 0:
+            self.l2 = -1
+
+        
+        self.FEATURE_NAMES =  [
+                "atom_type",
+                "degree",
+                "formal_charge",
+                "hybridization_type",
+                "aromatic",
+                "chirality_type",
+            ]
+        self.ONEHOTENCODING = [0, 1, 2, 3, 4, 5]
+        
+        
+    def get_CODEBOOKS(self):
+        global ONEHOTENCODING_CODEBOOKS
+        if ONEHOTENCODING_CODEBOOKS:
+            #print("ONEHOTENCODING_CODEBOOKS is available already, do not need to regenerate ONEHOTENCODING_CODEBOOKS")
+            #print(ONEHOTENCODING_CODEBOOKS)
+            return 
+        
+        features_all = [data.x.numpy() for data in self.dataset]
+        features = np.vstack(features_all)
+        node_attributes_cnt = {}
+        for j, col in enumerate(zip(*features)):
+            node_attributes_cnt[self.FEATURE_NAMES[j]] = collections.Counter(col)
+
+        ONEHOTENCODING_CODEBOOKS.update({
+            feature_name: sorted(node_attributes_cnt[feature_name].keys())
+            for feature_name in self.FEATURE_NAMES} )
+            
+        #print(f"generating ONEHOTENCODING_CODEBOOKS......")
+
+        
+    def get_onehot_features(self,features):
+        feature_one_hot = []
+        #print(f'input features{features}')
+        for row in features.tolist():
+            this_row = []
+            for j, feature_val_before_onehot in enumerate(row):
+                onehot_code = ONEHOTENCODING_CODEBOOKS[self.FEATURE_NAMES[j]]
+                onehot_val = [0.0] * len(onehot_code)
+                assert feature_val_before_onehot in onehot_code
+                onehot_val[onehot_code.index(feature_val_before_onehot)] = 1.0 
+                this_row += onehot_val
+            feature_one_hot.append(this_row)
+        return torch.Tensor(feature_one_hot)
+
+
+    def __call__(self, data, root_idx=None):
+
+        self.get_CODEBOOKS()
+        #print(f'before onehot data {data.x.numpy()}')
+
+        
+       
+        
+        num_atoms = data.x.size(0)
+        if root_idx == None:
+            root_idx = random.sample(range(num_atoms), 1)[0]
+
+        G = graph_data_obj_to_nx_simple(data)  # same ordering as input data obj
+
+        # Get k-hop subgraph rooted at specified atom idx
+        substruct_node_idxes = nx.single_source_shortest_path_length(
+            G, root_idx, self.k
+        ).keys()
+        if len(substruct_node_idxes) > 0:
+            substruct_G = G.subgraph(substruct_node_idxes)
+            substruct_G, substruct_node_map = reset_idxes(substruct_G)  # need
+            # to reset node idx to 0 -> num_nodes - 1, otherwise data obj does not
+            # make sense, since the node indices in data obj must start at 0
+            substruct_data = nx_to_graph_data_obj_simple(substruct_G)
+            data.x_substruct = substruct_data.x
+            data.edge_attr_substruct = substruct_data.edge_attr
+            data.edge_index_substruct = substruct_data.edge_index
+            data.center_substruct_idx = torch.tensor(
+                [substruct_node_map[root_idx]]
+            )  # need
+            # to convert center idx from original graph node ordering to the
+            # new substruct node ordering
+            
+            data.x_substruct= self.get_onehot_features(data.x_substruct.numpy())
+        # Get subgraphs that is between l1 and l2 hops away from the root node
+        l1_node_idxes = nx.single_source_shortest_path_length(
+            G, root_idx, self.l1
+        ).keys()
+        l2_node_idxes = nx.single_source_shortest_path_length(
+            G, root_idx, self.l2
+        ).keys()
+        context_node_idxes = set(l1_node_idxes).symmetric_difference(set(l2_node_idxes))
+        if len(context_node_idxes) > 0:
+            context_G = G.subgraph(context_node_idxes)
+            context_G, context_node_map = reset_idxes(context_G)  # need to
+            # reset node idx to 0 -> num_nodes - 1, otherwise data obj does not
+            # make sense, since the node indices in data obj must start at 0
+            context_data = nx_to_graph_data_obj_simple(context_G)
+            data.x_context = context_data.x
+            data.edge_attr_context = context_data.edge_attr
+            data.edge_index_context = context_data.edge_index
+            data.x_context= self.get_onehot_features(data.x_context.numpy()) 
+
+        # Get indices of overlapping nodes between substruct and context,
+        # WRT context ordering
+        context_substruct_overlap_idxes = list(
+            set(context_node_idxes).intersection(set(substruct_node_idxes))
+        )
+        if len(context_substruct_overlap_idxes) > 0:
+            context_substruct_overlap_idxes_reorder = [
+                context_node_map[old_idx] for old_idx in context_substruct_overlap_idxes
+            ]
+            # need to convert the overlap node idxes, which is from the
+            # original graph node ordering to the new context node ordering
+            data.overlap_context_substruct_idx = torch.tensor(
+                context_substruct_overlap_idxes_reorder
+            )
+        
+
+        
+        #print(f'after onehot data{onehot_features.size()}')
+
+        #print()
+        #print ( data )
+        return data
+  
+    
+    def __repr__(self):
+        return "{}(k={},l1={}, l2={})".format(
+            self.__class__.__name__, self.k, self.l1, self.l2
+        )
+    #def __repr__(self):
+     #   return f'{self.__class__.__name__}'
+        
 
 
 if __name__ == "__main__":

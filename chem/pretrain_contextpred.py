@@ -10,13 +10,15 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from model import GNN
+from model import GNN_MLP
 
-from util import ExtractSubstructureContextPair
+from util import ONEHOT_ContextPair
 
 from dataloader import DataLoaderSubstructContext
 
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
+
+from ONEHOT import ONEHOT_ENCODING
 
 
 def pool_func(x, batch, mode="sum"):
@@ -192,8 +194,14 @@ def main():
         "--csize", type=int, default=3, help="context size (default: 3)."
     )
     parser.add_argument(
-        "--emb_dim", type=int, default=300, help="embedding dimensions (default: 300)"
+        "--emb_dim", type=int, default=64, help="embedding dimensions (default: 300)"
     )
+    parser.add_argument(
+        "--node_feat_dim" , type=int, default=32, help="dimension of the node features. Note onehot encoding is applied if it's more than 6")
+    parser.add_argument(
+        "--edge_feat_dim",type=int, default=2, help="dimension ofo the edge features."
+    )
+    
     parser.add_argument(
         "--dropout_ratio", type=float, default=0, help="dropout ratio (default: 0)"
     )
@@ -220,23 +228,28 @@ def main():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="contextPred/chem/dataset/zinc_standard_agent",
+        default="dataset/zinc_standard_agent",
         help="root directory of dataset for pretraining",
     )
     parser.add_argument(
         "--output_model_file", type=str, default="", help="filename to output the model"
     )
-    parser.add_argument("--gnn_type", type=str, default="gin")
+    parser.add_argument("--gnn_type", type=str, default="gine")
     parser.add_argument(
         "--seed", type=int, default=0, help="Seed for splitting dataset."
     )
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=8,
+        default=4,
         help="number of workers for dataset loading",
     )
     args = parser.parse_args()
+    
+    print("show all arguments configuration...")
+    print(args)
+
+
 
     torch.manual_seed(0)
     np.random.seed(0)
@@ -255,25 +268,31 @@ def main():
     print("num layer: %d l1: %d l2: %d" % (args.num_layer, l1, l2))
 
     # set up dataset and transform function.
+    dataset_og = MoleculeDataset(root=args.dataset, dataset=os.path.basename(args.dataset) )
+  
     dataset = MoleculeDataset(
-        args.dataset,
+        root = args.dataset,
         dataset=os.path.basename(args.dataset),
-        transform=ExtractSubstructureContextPair(args.num_layer, l1, l2),
+        transform=ONEHOT_ContextPair(dataset = dataset_og, k = args.num_layer, l1= l1, l2 =l2),
     )
     loader = DataLoaderSubstructContext(
         dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
     )
 
     # set up models, one for pre-training and one for context embeddings
-    model_substruct = GNN(
+    model_substruct = GNN_MLP(
         args.num_layer,
+        args.node_feat_dim,
+        args.edge_feat_dim,
         args.emb_dim,
         JK=args.JK,
         drop_ratio=args.dropout_ratio,
         gnn_type=args.gnn_type,
     ).to(device)
-    model_context = GNN(
+    model_context = GNN_MLP(
         int(l2 - l1),
+        args.node_feat_dim,
+        args.edge_feat_dim,
         args.emb_dim,
         JK=args.JK,
         drop_ratio=args.dropout_ratio,
