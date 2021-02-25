@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from model_origin import GNN, GNN_graphpred
+from model import GNN_MLP, GNN_graphpred
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from splitters import scaffold_split
@@ -21,6 +21,8 @@ import os
 import shutil
 
 from tensorboardX import SummaryWriter
+
+from util import ONEHOT_ENCODING
 
 criterion = nn.BCEWithLogitsLoss(reduction="none")
 
@@ -125,8 +127,17 @@ def main():
         default=5,
         help="number of GNN message passing layers (default: 5).",
     )
+    
     parser.add_argument(
-        "--emb_dim", type=int, default=300, help="embedding dimensions (default: 300)"
+        "--node_feat_dim", type=int, default=154, help="dimension of the node features.",
+    )
+    parser.add_argument(
+        "--edge_feat_dim", type=int, default=2, help="dimension ofo the edge features."
+    )
+
+
+    parser.add_argument(
+        "--emb_dim", type=int, default=256, help="embedding dimensions (default: 300)"
     )
     parser.add_argument(
         "--dropout_ratio", type=float, default=0.5, help="dropout ratio (default: 0.5)"
@@ -143,11 +154,11 @@ def main():
         default="last",
         help="how the node features across layers are combined. last, sum, max or concat",
     )
-    parser.add_argument("--gnn_type", type=str, default="gin")
+    parser.add_argument("--gnn_type", type=str, default="gine")
     parser.add_argument(
         "--dataset",
         type=str,
-        default="tox21",
+        default="bbbp",
         help="root directory of dataset. For now, only classification.",
     )
     parser.add_argument(
@@ -217,7 +228,9 @@ def main():
 
     # set up dataset
 #    dataset = MoleculeDataset("contextPred/chem/dataset/" + args.dataset, dataset=args.dataset)
-    dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
+    dataset_og = MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset)
+    dataset =  MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset , transform = ONEHOT_ENCODING(dataset = dataset_og))
+    
     print(dataset)
 
     if args.split == "scaffold":
@@ -285,6 +298,8 @@ def main():
     # set up model
     model = GNN_graphpred(
         args.num_layer,
+        args.node_feat_dim,
+        args.edge_feat_dim,
         args.emb_dim,
         num_tasks,
         JK=args.JK,
@@ -316,7 +331,7 @@ def main():
     test_acc_list = []
 
     if not args.filename == "":
-        fname = "/raid/home/yoyowu/Weihua_b/TFlogs_1/" + str(args.runseed) + "/" + args.filename
+        fname = "/raid/home/yoyowu/Weihua_b/TFlogs_0224/" + str(args.runseed) + "/" + args.filename
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)

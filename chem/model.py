@@ -528,6 +528,8 @@ class GNN_graphpred(torch.nn.Module):
     def __init__(
         self,
         num_layer,
+        node_feat_dim,
+        edge_feat_dim,
         emb_dim,
         num_tasks,
         JK="last",
@@ -549,7 +551,7 @@ class GNN_graphpred(torch.nn.Module):
         if use_embedding:
             self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
         else:
-            self.gnn = GNN_MLP(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
+            self.gnn = GNN_MLP(num_layer, node_feat_dim, edge_feat_dim, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
 
         # Different kind of graph pooling
         if graph_pooling == "sum":
@@ -632,6 +634,8 @@ class GNN_fingerprint(torch.nn.Module):
     def __init__(
         self,
         num_layer,
+        node_feat_dim,
+        edge_feat_dim,
         emb_dim,
         fingerprint_dim,
         JK="last",
@@ -651,7 +655,7 @@ class GNN_fingerprint(torch.nn.Module):
         if use_embedding:
             self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
         else:
-            self.gnn = GNN_MLP(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
+            self.gnn = GNN_MLP(num_layer,node_feat_dim, edge_feat_dim, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
         self.linear_pred_fingerprint = torch.nn.Linear(emb_dim, emb_dim)
 
         self.fingerprint_decoder = FingerprintDecoder(emb_dim, fingerprint_dim)
@@ -677,14 +681,14 @@ class GNN_fingerprint(torch.nn.Module):
         self.gnn.load_state_dict(torch.load(model_file))
 
     def forward(self, *argv):
-        if len(argv) == 3:
-            x, edge_index, batch = argv[0], argv[1], argv[2]
+        if len(argv) == 4:
+            x, edge_index, edge_attr, batch = argv[0], argv[1], argv[2], argv[3]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index, batch = data.x, data.edge_index, data.batch
+            x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
         else:
             raise ValueError("unmatched number of arguments.")
-        node_representation = self.gnn(x, edge_index)
+        node_representation = self.gnn(x, edge_index, edge_attr)
         score_fingerprint = self.linear_pred_fingerprint(
             self.pool(node_representation, batch)
         )

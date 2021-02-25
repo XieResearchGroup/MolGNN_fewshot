@@ -6,9 +6,9 @@ import networkx as nx
 from rdkit.Chem import AllChem
 import numpy as np
 
-from .loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
+from loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
 
-from .loader import MoleculeDataset
+from loader import MoleculeDataset
 
 
 def get_filtered_fingerprint(smiles):
@@ -507,6 +507,94 @@ class ONEHOT_ContextPair(object):
     # def __repr__(self):
     #   return f'{self.__class__.__name__}'
 
+    
+    
+    
+    
+    
+    
+class ONEHOT_ENCODING(object):
+    
+    
+    ONEHOTENCODING_CODEBOOKS = {
+    "atom_type": list(range(119)),
+    "degree": list(range(11)),
+    "formal_charge": list(range(11)),
+    "hybridization_type": list(range(7)),
+    "aromatic": [0, 1],
+    "chirality_type": [0, 1, 2, 3],
+}
+
+
+
+    def __init__(self, dataset):
+
+        self.dataset = dataset 
+
+        
+        self.FEATURE_NAMES =  [
+                "atom_type",
+                "degree",
+                "formal_charge",
+                "hybridization_type",
+                "aromatic",
+                "chirality_type",
+            ]
+        self.ONEHOTENCODING = [0, 1, 2, 3, 4, 5]
+        
+        
+    def get_CODEBOOKS(self):
+        
+         
+        if self.ONEHOTENCODING_CODEBOOKS:
+            # print("ONEHOTENCODING_CODEBOOKS is available already, do not need to
+            # regenerate ONEHOTENCODING_CODEBOOKS")
+            # print(ONEHOTENCODING_CODEBOOKS)
+            return
+
+        
+        features_all = [data.x.numpy() for data in self.dataset]
+        features = np.vstack(features_all)
+        node_attributes_cnt = {}
+        for j, col in enumerate(zip(*features)):
+            node_attributes_cnt[self.FEATURE_NAMES[j]] = collections.Counter(col)
+
+        ONEHOTENCODING_CODEBOOKS.update({
+            feature_name: sorted(node_attributes_cnt[feature_name].keys())
+            for feature_name in self.FEATURE_NAMES} )
+            
+        #print(f"generating ONEHOTENCODING_CODEBOOKS......")
+
+        
+    def get_onehot_features(self,features):
+        feature_one_hot = []
+        #print(f'input features{features}')
+        for row in features.tolist():
+            this_row = []
+            for j, feature_val_before_onehot in enumerate(row):
+                onehot_code = self.ONEHOTENCODING_CODEBOOKS[self.FEATURE_NAMES[j]]
+                onehot_val = [0.0] * len(onehot_code)
+                assert feature_val_before_onehot in onehot_code
+                onehot_val[onehot_code.index(feature_val_before_onehot)] = 1.0 
+                this_row += onehot_val
+            feature_one_hot.append(this_row)
+        return torch.Tensor(feature_one_hot)
+
+
+    def __call__(self, data):
+
+        self.get_CODEBOOKS()
+        #print(f'before onehot data {data.x.numpy()}')
+        onehot_features = self.get_onehot_features(data.x.numpy()) 
+        #print(f'after onehot data{onehot_features.size()}')
+        data.x = onehot_features
+        #print()
+        #print ( data )
+        return data
+    
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}'
 
 if __name__ == "__main__":
     transform = NegativeEdge()

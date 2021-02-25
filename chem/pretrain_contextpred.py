@@ -8,10 +8,10 @@ from tqdm import tqdm
 import numpy as np
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
-from .model import GNN_MLP
-from .loader import MoleculeDataset
-from .util import ONEHOT_ContextPair
-from .dataloader import DataLoaderSubstructContext
+from model import GNN_MLP
+from loader import MoleculeDataset
+from util import ONEHOT_ContextPair
+from dataloader import DataLoaderSubstructContext
 
 # from .ONEHOT import ONEHOT_ENCODING
 
@@ -228,7 +228,7 @@ def main():
         help="root directory of dataset for pretraining",
     )
     parser.add_argument(
-        "--output_model_file", type=str, default="", help="filename to output the model"
+        "--output_model_file", type=str, default="trained_model/context_onehot_mlp", help="filename to output the model"
     )
     parser.add_argument("--gnn_type", type=str, default="gine")
     parser.add_argument(

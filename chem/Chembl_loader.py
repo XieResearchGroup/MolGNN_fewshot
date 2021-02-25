@@ -3,12 +3,12 @@ import multiprocessing as mp
 
 import torch
 from torch_geometric.data import Dataset, Data
-from chemreader.readers import Smiles
+#from chemreader.readers import Smiles
 from rdkit import Chem
 import numpy as np
 from tqdm import tqdm
 
-from .util import get_filtered_fingerprint
+from util import get_filtered_fingerprint
 
 
 class ChemBLFP(Dataset):
