@@ -1,7 +1,7 @@
 import torch.utils.data
 from torch.utils.data.dataloader import default_collate
 
-from batch import BatchSubstructContext, BatchMasking, BatchAE
+from .batch import BatchSubstructContext, BatchMasking, BatchAE
 
 
 class DataLoaderSubstructContext(torch.utils.data.DataLoader):

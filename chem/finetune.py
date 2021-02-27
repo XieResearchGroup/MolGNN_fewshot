@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from model_origin import GNN, GNN_graphpred
+from model import GNN, GNN_graphpred
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from splitters import scaffold_split
@@ -293,7 +293,7 @@ def main():
         gnn_type=args.gnn_type,
     )
     if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file+ ".pth")
+        model.from_pretrained(args.input_model_file)
 
     model.to(device)
 
@@ -316,7 +316,7 @@ def main():
     test_acc_list = []
 
     if not args.filename == "":
-        fname = "/raid/home/yoyowu/Weihua_b/TFlogs_1/" + str(args.runseed) + "/" + args.filename
+        fname = "runs/finetune_cls_runseed" + str(args.runseed) + "/" + args.filename
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)

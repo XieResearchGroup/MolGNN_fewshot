@@ -4,9 +4,9 @@ import random
 import networkx as nx
 from rdkit.Chem import AllChem
 
-from loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
+from .loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
 
-from loader import MoleculeDataset
+from .loader import MoleculeDataset
 
 
 def check_same_molecules(s1, s2):
