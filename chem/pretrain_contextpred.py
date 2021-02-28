@@ -8,10 +8,11 @@ from tqdm import tqdm
 import numpy as np
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
-from model import GNN_MLP
+from model import GNN_MLP, GNN
 from loader import MoleculeDataset
-from util import ONEHOT_ContextPair
+from util import ONEHOT_ContextPair, ExtractSubstructureContextPair
 from dataloader import DataLoaderSubstructContext
+
 
 # from .ONEHOT import ONEHOT_ENCODING
 

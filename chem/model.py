@@ -50,23 +50,22 @@ class GINConv(MessagePassing):
         torch.nn.init.xavier_uniform_(self.edge_embedding2.weight.data)
         self.aggr = aggr
 
-    def forward(self, x, edge_index):
-        # add self loops in the edge space
-        edge_index = add_self_loops(edge_index, num_nodes=x.size(0))
-        # add features corresponding to self-loop edges.
+    def forward(self, x, edge_index, edge_attr):
+        #add self loops in the edge space
+        edge_index = add_self_loops(edge_index, num_nodes = x.size(0))
+
+        #add features corresponding to self-loop edges.
         self_loop_attr = torch.zeros(x.size(0), 2)
-        self_loop_attr[:, 0] = 4  # bond type for self-loop edge
-        # self_loop_attr = self_loop_attr.to(edge_attr).to(edge_attr.dtype)
-        # edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
+        self_loop_attr[:,0] = 4 #bond type for self-loop edge
+        self_loop_attr = self_loop_attr.to(edge_attr.device).to(edge_attr.dtype)
+        edge_attr = torch.cat((edge_attr, self_loop_attr), dim = 0)
 
-        # edge_embeddings = self.edge_embedding1(edge_attr) + \
-        # self.edge_embedding2(edge_attr)
+        edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
-        return self.propagate(self.aggr, edge_index, x=x)
-        # return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
+        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
 
-    def message(self, x_j):
-        return x_j
+    def message(self, x_j, edge_attr):
+        return x_j + edge_attr
 
     def update(self, aggr_out):
         return self.mlp(aggr_out)
@@ -217,7 +216,7 @@ class GATConv(MessagePassing):
         )
 
         x = self.weight_linear(x).view(-1, self.heads, self.emb_dim)
-        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
+        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
 
     def message(self, edge_index, x_i, x_j, edge_attr):
         edge_attr = edge_attr.view(-1, self.heads, self.emb_dim)
@@ -336,11 +335,11 @@ class GNN(torch.nn.Module):
 
     # def forward(self, x, edge_index, edge_attr):
     def forward(self, *argv):
-        if len(argv) == 2:
-            x, edge_index = argv[0], argv[1]
+        if len(argv) == 3:
+            x, edge_index, edge_attr = argv[0], argv[1], argv[2]
         elif len(argv) == 1:
             data = argv[0]
-            x, edge_index = data.x, data.edge_index
+            x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
         else:
             raise ValueError("unmatched number of arguments.")
 

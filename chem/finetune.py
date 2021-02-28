@@ -11,7 +11,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from model import GNN_MLP, GNN_graphpred
+from model import GNN_MLP, GNN_graphpred, GNN
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from splitters import scaffold_split
@@ -308,7 +308,7 @@ def main():
         gnn_type=args.gnn_type,
     )
     if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file+ ".pth")
+        model.from_pretrained(args.input_model_file)
 
     model.to(device)
 
