@@ -6,9 +6,9 @@ import networkx as nx
 from rdkit.Chem import AllChem
 import numpy as np
 
-from .loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
+from loader import graph_data_obj_to_nx_simple, nx_to_graph_data_obj_simple
 
-from .loader import MoleculeDataset
+from loader import MoleculeDataset
 
 
 def get_filtered_fingerprint(smiles):
