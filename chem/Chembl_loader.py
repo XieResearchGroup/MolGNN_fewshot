@@ -1,14 +1,16 @@
 import os.path as osp
 import multiprocessing as mp
+import gzip
 
 import torch
 from torch_geometric.data import Dataset, Data
-#from chemreader.readers import Smiles
+
+# from chemreader.readers import Smiles
 from rdkit import Chem
 import numpy as np
 from tqdm import tqdm
 
-from util import get_filtered_fingerprint
+from .util import get_filtered_fingerprint
 
 
 class ChemBLFP(Dataset):
@@ -55,12 +57,35 @@ class ChemBLFP(Dataset):
         transform=None,
         pre_transform=None,
         n_workers=4,
-        _contextpred_format=False,
+        atom_feat_format="contextpred",
+        scale="full",
     ):
+        """ Dataset class for ChemBL dataset.
+
+        Args:
+            root (str): path to the dataset root directory
+            transform (callable): a callable to transform the data on the fly
+            pre_transform (callable): a callable to transform the data during processing
+            n_workers (int): number of workers for multiprocessing
+            atom_feat_format (str): "contextpred" or "sim_atom_type". The
+                "sim_atom_type" format has simpler atom types comparing to "contextpred"
+                format.
+            scale (str): the scale of the dataset. "filtered" or "full". "full" has
+                1785415 chemical compounds. "filtered" has 430709 chemical compounds.
+        """
         if root is None:
             root = osp.join("data", "ChemBL")
         self.n_workers = n_workers
-        self._contextpred_format = _contextpred_format
+        assert atom_feat_format in [
+            "contextpred",
+            "sim_atom_type",
+        ], f"{atom_feat_format} should be in ['contextpred', 'sim_atom_type']"
+        assert scale in [
+            "full",
+            "filtered",
+        ], f"{scale} should be in ['full', 'filtered']"
+        self.atom_feat_format = atom_feat_format
+        self.scale = scale
         super().__init__(root, transform, pre_transform)
 
     @property
@@ -69,18 +94,22 @@ class ChemBLFP(Dataset):
 
     @property
     def processed_dir(self):
-        if self._contextpred_format:
-            return osp.join(self.root, "contextpred_format_processed")
-        else:
-            return osp.join(self.root, "processed")
+        name = "_".join([self.atom_feat_format, self.scale, "processed"])
+        return osp.join(self.root, name)
 
     @property
     def raw_file_names(self):
-        return ["smiles.csv"]
+        if self.scale == "filtered":
+            return ["smiles.csv"]
+        else:
+            return ["chembl_25.csv.gz"]
 
     @property
     def processed_file_names(self):
-        return ["data_1.pt", "data_2.pt", "data_430000.pt"]
+        if self.scale == "filtered":
+            return ["data_1.pt", "data_2.pt", "data_430000.pt"]
+        else:
+            return ["data_1.pt", "data_2.pt", "data_1780000.pt"]
 
     def download(self):
         """ Get raw data and save to raw directory.
@@ -103,6 +132,8 @@ class ChemBLFP(Dataset):
             )
 
     def create_graph(self, smi, idx, q):
+        from chemreader.readers import Smiles
+
         try:
             graph = Smiles(smi).to_graph(sparse=True, pyg=True)
         except AttributeError:
@@ -211,7 +242,7 @@ class ChemBLFP(Dataset):
         data = self._get_data()
         pb = tqdm(data, total=self.len(), desc="Load tasks: ")
         # main loop
-        if not self._contextpred_format:
+        if not self.atom_feat_format:
             worker = self.create_graph
         else:
             worker = self._create_contextpred_graph
@@ -227,11 +258,10 @@ class ChemBLFP(Dataset):
         return self.__len__()
 
     def _get_len(self):
-        n = 0
-        with open(self.raw_paths[0]) as f:
-            for line in f.readlines():
-                n += 1
-        return n
+        if self.scale == "filtered":
+            return 430710
+        else:
+            return 1785415
 
     def __len__(self):
         try:
@@ -245,11 +275,19 @@ class ChemBLFP(Dataset):
         return data
 
     def _get_data(self):
-        """ Method to get SMILES strings and generate fingerprint from the raw data.
+        """ Method to get SMILES strings.
         """
-        with open(self.raw_paths[0]) as f:
-            for smiles in f.readlines():
-                yield smiles.strip()
+        if self.scale == "filtered":
+            with open(self.raw_paths[0]) as f:
+                for smiles in f.readlines():
+                    yield smiles.strip()
+        else:
+            with gzip.open(self.raw_paths[0]) as f:
+                for line in f.readlines():
+                    # skip header
+                    if line.decode().startswith("smiles"):
+                        continue
+                    yield line.decode().split(",")[0]
 
 
 if __name__ == "__main__":
@@ -258,11 +296,13 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--root", type=str, default=None)
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--contextpred-format", action="store_true")
+    parser.add_argument("--scale", type=str, default="full")
+    parser.add_argument("--atom-feat-format", type=str, default="contextpred")
     args = parser.parse_args()
     chembl = ChemBLFP(
         root=args.root,
         n_workers=args.workers,
-        _contextpred_format=args.contextpred_format,
+        scale=args.scale,
+        atom_feat_format=args.atom_feat_format,
     )
     print(chembl[0])
