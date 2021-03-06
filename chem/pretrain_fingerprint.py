@@ -140,8 +140,8 @@ def main():
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(0)
     
-    dataset_og = ChemBLFP(root=args.dataset, _contextpred_format=True)
-    dataset = ChemBLFP(root=args.dataset ,_contextpred_format=True, transform = ONEHOT_ENCODING(dataset = dataset_og))
+    dataset_og = ChemBLFP(root=args.dataset)
+    dataset = ChemBLFP(root=args.dataset , transform = ONEHOT_ENCODING(dataset = dataset_og))
 
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     #model = GNN_fingerprint(5, 300,fingerprint_dim=740, JK = 'last',  graph_pooling = "mean"  , drop_ratio = 0.2,  gnn_type = 'gin') 
