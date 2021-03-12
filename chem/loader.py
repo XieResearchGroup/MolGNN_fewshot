@@ -732,7 +732,7 @@ class MoleculeDataset(InMemoryDataset):
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
-        if self.dataset == "amu":
+        elif self.dataset == "amu":
             smiles_list, rdkit_mol_objs, labels = _load_amu_dataset(
                 os.path.join(self.raw_dir, "amu_sars_cov_2_in_vitro.csv")
             )
@@ -750,7 +750,7 @@ class MoleculeDataset(InMemoryDataset):
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
-        if self.dataset == "ellinger":
+        elif self.dataset == "ellinger":
             smiles_list, rdkit_mol_objs, labels = _load_ellinger_dataset(
                 os.path.join(self.raw_dir, "ellinger.csv")
             )
@@ -768,7 +768,7 @@ class MoleculeDataset(InMemoryDataset):
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
 
-        if self.dataset == "mpro":
+        elif self.dataset == "mpro":
             smiles_list, rdkit_mol_objs, labels = _load_mpro_dataset(
                 os.path.join(self.raw_dir, "mpro_xchem.csv")
             )
@@ -1344,7 +1344,7 @@ def _load_amu_dataset(input_path):
     labels = np.where(labels == 0, -1, labels)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
-    return smiles_list, rdkit_mol_objs_list, labels.values
+    return smiles_list, rdkit_mol_objs_list, labels
 
 
 def _load_ellinger_dataset(input_path):
@@ -1364,7 +1364,7 @@ def _load_ellinger_dataset(input_path):
     labels = np.where(labels == 0, -1, labels)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
-    return smiles_list, rdkit_mol_objs_list, labels.values
+    return smiles_list, rdkit_mol_objs_list, labels
 
 
 def _load_mpro_dataset(input_path):
@@ -1384,7 +1384,7 @@ def _load_mpro_dataset(input_path):
     labels = np.where(labels == 0, -1, labels)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
-    return smiles_list, rdkit_mol_objs_list, labels.values
+    return smiles_list, rdkit_mol_objs_list, labels
 
 
 def _load_chembl_with_labels_dataset(root_path):
