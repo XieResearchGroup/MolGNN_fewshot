@@ -1,3 +1,6 @@
+# data files
+data/
+
 # doc build
 doc/_build
 
