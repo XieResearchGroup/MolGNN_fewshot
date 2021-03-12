@@ -26,23 +26,16 @@ num_bond_direction = 3
 class GINConv(MessagePassing):
     """
     Extension of GIN aggregation to incorporate edge information by concatenation.
-
     Args:
         emb_dim (int): dimensionality of embeddings for nodes and edges.
-        embed_input (bool): whether to embed input or not.
-
-
+        embed_input (bool): whether to embed input or not. 
+        
     See https://arxiv.org/abs/1810.00826
     """
-
-    def __init__(self, emb_dim, aggr="add"):
+    def __init__(self, emb_dim, aggr = "add"):
         super(GINConv, self).__init__()
-        # multi-layer perceptron
-        self.mlp = torch.nn.Sequential(
-            torch.nn.Linear(emb_dim, 2 * emb_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(2 * emb_dim, emb_dim),
-        )
+        #multi-layer perceptron
+        self.mlp = torch.nn.Sequential(torch.nn.Linear(emb_dim, 2*emb_dim), torch.nn.ReLU(), torch.nn.Linear(2*emb_dim, emb_dim))
         self.edge_embedding1 = torch.nn.Embedding(num_bond_type, emb_dim)
         self.edge_embedding2 = torch.nn.Embedding(num_bond_direction, emb_dim)
 
@@ -62,14 +55,13 @@ class GINConv(MessagePassing):
 
         edge_embeddings = self.edge_embedding1(edge_attr[:,0]) + self.edge_embedding2(edge_attr[:,1])
 
-        return self.propagate(self.aggr, edge_index, x=x, edge_attr=edge_embeddings)
+        return self.propagate(edge_index[0], x=x, edge_attr=edge_embeddings)
 
     def message(self, x_j, edge_attr):
         return x_j + edge_attr
 
     def update(self, aggr_out):
         return self.mlp(aggr_out)
-
 
 class GINE(MessagePassing):
     """
@@ -277,23 +269,18 @@ class GraphSAGEConv(MessagePassing):
 
 class GNN(torch.nn.Module):
     """
-
-
+    
     Args:
         num_layer (int): the number of GNN layers
         emb_dim (int): dimensionality of embeddings
         JK (str): last, concat, max or sum.
-        max_pool_layer (int): the layer from which we use max pool rather than add pool
-            for neighbor aggregation
+        max_pool_layer (int): the layer from which we use max pool rather than add pool for neighbor aggregation
         drop_ratio (float): dropout rate
         gnn_type: gin, gcn, graphsage, gat
-
     Output:
         node representations
-
     """
-
-    def __init__(self, num_layer, emb_dim, JK="last", drop_ratio=0, gnn_type="gin"):
+    def __init__(self, num_layer, emb_dim, JK = "last", drop_ratio = 0, gnn_type = "gin"):
         super(GNN, self).__init__()
         self.num_layer = num_layer
         self.drop_ratio = drop_ratio
@@ -316,11 +303,11 @@ class GNN(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.x_embedding5.weight.data)
         torch.nn.init.xavier_uniform_(self.x_embedding6.weight.data)
 
-        # List of MLPs
+        ###List of MLPs
         self.gnns = torch.nn.ModuleList()
         for layer in range(num_layer):
             if gnn_type == "gin":
-                self.gnns.append(GINConv(emb_dim, aggr="add"))
+                self.gnns.append(GINConv(emb_dim, aggr = "add"))
             elif gnn_type == "gcn":
                 self.gnns.append(GCNConv(emb_dim))
             elif gnn_type == "gat":
@@ -328,12 +315,12 @@ class GNN(torch.nn.Module):
             elif gnn_type == "graphsage":
                 self.gnns.append(GraphSAGEConv(emb_dim))
 
-        # List of batchnorms
+        ###List of batchnorms
         self.batch_norms = torch.nn.ModuleList()
         for layer in range(num_layer):
             self.batch_norms.append(torch.nn.BatchNorm1d(emb_dim))
 
-    # def forward(self, x, edge_index, edge_attr):
+    #def forward(self, x, edge_index, edge_attr):
     def forward(self, *argv):
         if len(argv) == 3:
             x, edge_index, edge_attr = argv[0], argv[1], argv[2]
@@ -343,64 +330,31 @@ class GNN(torch.nn.Module):
         else:
             raise ValueError("unmatched number of arguments.")
 
-        x = x.to(torch.long)
-        # to get rid of negative values of formal charge
-        for i in x[:, 2]:
+        x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1]) + self.x_embedding3(x[:,2]) + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) + self.x_embedding6(x[:,5])
 
-            i += 4
-        # print(f'before add two{x[:,3]}')
-        # x=x+1
-        # print (f'after {x[:,3]}')
-        # print(f'type of x: {x.type()}')
-        # print(f'size of x:{x.size()})
-        # print(f'formal charge{x[:,2]}')
-        # print(f'self.x_embedding1 (x[:,0]):{self.x_embedding1(x[:,0])}')
-        # print(f'self.x_embedding2 (x[:,1]):{self.x_embedding2(x[:,1])}')
-        # print(f'self.x_embedding3 (x[:,2])'
-        #     f'the formal charge num:{self.x_embedding3(x[:,2])}')
-        # print(f'self.x_embedding4 (x[:,3]):{self.x_embedding4(x[:,3])}')
-        # print(f'self.x_embedding5 (x[:,4]):{self.x_embedding5(x[:,4])}')
-        # print(f'self.x_embedding6 (x[:,5]):{self.x_embedding6(x[:,5])}')
-        # x = self.x_embedding1(x[:,0]) + self.x_embedding2(x[:,1]) \
-        #     + self.x_embedding4(x[:,3]) + self.x_embedding5(x[:,4]) \
-        #     + self.x_embedding6(x[:,5])
-        x = (
-            self.x_embedding1(x[:, 0])
-            + self.x_embedding2(x[:, 1])
-            + self.x_embedding3(x[:, 2])
-            + self.x_embedding4(x[:, 3])
-            + self.x_embedding5(x[:, 4])
-            + self.x_embedding6(x[:, 5])
-        )
-        # print(f'shape of x {x.size()},x[0] :{x[0]}, edge attribute :{edge_attr[0]}')
         h_list = [x]
         for layer in range(self.num_layer):
-            # print(f'h list[layer], edge_index, edge_attri:{h_list[layer].size()}'
-            # f'{h_list[layer]}###{edge_index.size()}{edge_index}'
-            # f'####{edge_attr.size()}{edge_attr}')
-            h = self.gnns[layer](h_list[layer], edge_index)
-            # print(f'argv infomation{argv[0]}, {argv[1]}, {argv[2]},'
-            # f'length of argv{len(argv)}')
+            h = self.gnns[layer](h_list[layer], edge_index, edge_attr)
             h = self.batch_norms[layer](h)
-            # h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
+            #h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
             if layer == self.num_layer - 1:
-                # remove relu for the last layer
-                h = F.dropout(h, self.drop_ratio, training=self.training)
+                #remove relu for the last layer
+                h = F.dropout(h, self.drop_ratio, training = self.training)
             else:
-                h = F.dropout(F.relu(h), self.drop_ratio, training=self.training)
+                h = F.dropout(F.relu(h), self.drop_ratio, training = self.training)
             h_list.append(h)
 
-        # Different implementations of Jk-concat
+        ### Different implementations of Jk-concat
         if self.JK == "concat":
-            node_representation = torch.cat(h_list, dim=1)
+            node_representation = torch.cat(h_list, dim = 1)
         elif self.JK == "last":
             node_representation = h_list[-1]
         elif self.JK == "max":
             h_list = [h.unsqueeze_(0) for h in h_list]
-            node_representation = torch.max(torch.cat(h_list, dim=0), dim=0)[0]
+            node_representation = torch.max(torch.cat(h_list, dim = 0), dim = 0)[0]
         elif self.JK == "sum":
             h_list = [h.unsqueeze_(0) for h in h_list]
-            node_representation = torch.sum(torch.cat(h_list, dim=0), dim=0)[0]
+            node_representation = torch.sum(torch.cat(h_list, dim = 0), dim = 0)[0]
 
         return node_representation
 
@@ -535,7 +489,7 @@ class GNN_graphpred(torch.nn.Module):
         drop_ratio=0,
         graph_pooling="mean",
         gnn_type="gine",
-        use_embedding=False,
+        use_embedding=0,
     ):
         super(GNN_graphpred, self).__init__()
         self.num_layer = num_layer
@@ -547,7 +501,7 @@ class GNN_graphpred(torch.nn.Module):
         if self.num_layer < 2:
             raise ValueError("Number of GNN layers must be greater than 1.")
 
-        if use_embedding:
+        if use_embedding==1:
             self.gnn = GNN(num_layer, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
         else:
             self.gnn = GNN_MLP(num_layer, node_feat_dim, edge_feat_dim, emb_dim, JK, drop_ratio, gnn_type=gnn_type)
@@ -718,6 +672,8 @@ class FingerprintDecoder(torch.nn.Module):
         # the N*hidden output of VGAE
         # x = torch.mean(x, -2)
         return x
+
+
 
 
 if __name__ == "__main__":

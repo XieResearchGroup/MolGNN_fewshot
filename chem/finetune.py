@@ -14,7 +14,7 @@ import numpy as np
 from model import GNN_MLP, GNN_graphpred, GNN
 from sklearn.metrics import roc_auc_score, average_precision_score
 
-from splitters import scaffold_split
+from splitters import scaffold_split,random_split
 import pandas as pd
 
 import os
@@ -23,6 +23,8 @@ import shutil
 from tensorboardX import SummaryWriter
 
 from util import ONEHOT_ENCODING
+
+
 
 criterion = nn.BCEWithLogitsLoss(reduction="none")
 
@@ -71,22 +73,27 @@ def eval(args, model, device, loader):
     y_scores = torch.cat(y_scores, dim=0).cpu().numpy()
     ap_list = []
     roc_list = []
+
+    #print (f'y true shape: {y_true.shape[1]}')
     for i in range(y_true.shape[1]):
+        #print(f'y true in the shape[1]:{y_true[:,i]}')
         # AUC is only defined when there is at least one positive data.
         if np.sum(y_true[:, i] == 1) > 0 and np.sum(y_true[:, i] == -1) > 0:
+            #print(f' after if the y_true value:{y_true[:,i]}')
             is_valid = y_true[:, i] ** 2 > 0
+            #print(f'is valid {is_valid}')
             roc_list.append(
                 roc_auc_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i])
             )
-            ap_list.append(
-                average_precision_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i])
-            )
-
+            #print(f'roc list{roc_list}, lenth{len(roc_list)}')
+            #ap_list.append(average_precision_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i]))
+    
+    #print(f'roc list{roc_list}, lenth roc : {len(roc_list)}, lenth true:{y_true.shape[1]}')
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
         print("Missing ratio: %f" % (1 - float(len(roc_list)) / y_true.shape[1]))
 
-    return sum(roc_list) / len(roc_list),sum(ap_list) / len(ap_list)  # y_true.shape[1]
+    return sum(roc_list) / len(roc_list)  # y_true.shape[1]
 
 
 def main():
@@ -192,6 +199,10 @@ def main():
         default=4,
         help="number of workers for dataset loading",
     )
+    parser.add_argument(
+        "--use_original",
+        type=int, default=0, help="run benchmark experiment or not")
+    
     args = parser.parse_args()
 
     torch.manual_seed(args.runseed)
@@ -223,19 +234,26 @@ def main():
         num_tasks = 27
     elif args.dataset == "clintox":
         num_tasks = 2
+    elif args.dataset == "jak1":
+        num_tasks = 1
+    elif args.dataset == "jak2":
+        num_tasks = 1
+    elif args.dataset == "jak3":
+        num_tasks = 1
     else:
         raise ValueError("Invalid dataset name.")
 
     # set up dataset
 #    dataset = MoleculeDataset("contextPred/chem/dataset/" + args.dataset, dataset=args.dataset)
-    dataset_og = MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset)
-    dataset =  MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset , transform = ONEHOT_ENCODING(dataset = dataset_og))
+    dataset = MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset)
+    if args.use_original == 0:
+        dataset =  MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset , transform = ONEHOT_ENCODING(dataset = dataset))
     
     print(dataset)
 
     if args.split == "scaffold":
         smiles_list = pd.read_csv(
-            "dataset/" + args.dataset + "/processed/smiles.csv", header=None
+            "/raid/home/public/dataset_ContextPred_0219/" + args.dataset + "/processed/smiles.csv", header=None
         )[0].tolist()
         train_dataset, valid_dataset, test_dataset = scaffold_split(
             dataset,
@@ -306,9 +324,10 @@ def main():
         drop_ratio=args.dropout_ratio,
         graph_pooling=args.graph_pooling,
         gnn_type=args.gnn_type,
+        use_embedding=args.use_original
     )
     if not args.input_model_file == "":
-        model.from_pretrained(args.input_model_file)
+        model.from_pretrained(args.input_model_file + ".pth")
 
     model.to(device)
 
@@ -345,15 +364,15 @@ def main():
 
         print("====Evaluation")
         if args.eval_train:
-            train_acc,train_ap = eval(args, model, device, train_loader)
+            train_acc = eval(args, model, device, train_loader)
         else:
             print("omit the training accuracy computation")
             train_acc = 0
-            train_ap = 0
-        val_acc,val_ap = eval(args, model, device, val_loader)
-        test_acc,test_ap = eval(args, model, device, test_loader)
+           
+        val_acc = eval(args, model, device, val_loader)
+        test_acc = eval(args, model, device, test_loader)
 
-        print("train: %f val: %f test auc: %f test ap: %f" % (train_acc, val_acc, test_acc,test_ap))
+        print("train: %f val: %f test auc: %f " % (train_acc, val_acc, test_acc))
 
         val_acc_list.append(val_acc)
         test_acc_list.append(test_acc)
