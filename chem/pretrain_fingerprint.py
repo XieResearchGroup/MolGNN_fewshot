@@ -25,9 +25,9 @@ def train( args, model, device, loader, optimizer, criterion):
 
     for step, batch in enumerate(tqdm(loader,desc='Iteration')):
         batch = batch.to(device)
-#        print(f'this batch :{batch}')
+
         pred = model (batch.x, batch.edge_index, batch.edge_attr, batch.batch)
-   #     pred = model (batch.x, batch.edge_index,  batch.batch)
+
         y = batch.y
         y = y.float()
         pred = pred.float()
@@ -38,6 +38,7 @@ def train( args, model, device, loader, optimizer, criterion):
         # backprop
         optimizer.zero_grad()
         #loss.backward()
+        #loss.sum().backward()
         loss.sum().backward()
         optimizer.step()
 
@@ -90,6 +91,8 @@ def eval (args, model,device, loader,criterion):
  
 def main():
     # Training settings
+    
+    
     parser = argparse.ArgumentParser(description='PyTorch implementation of pre-training of fingerprint')
 
     parser.add_argument('--device', type=int, default=0,
@@ -128,8 +131,9 @@ def main():
     parser.add_argument('--gnn_type', type=str, default="gine")
     parser.add_argument('--input_model_file', type=str, default = 'chemblFiltered_pretrained_model_with_contextPred', help='filename to read the model (if there is any)')
     parser.add_argument('--output_model_file', type = str, default = 'trained_model/pre_FP_chembl', help='filename to output the pre-trained model')
-    parser.add_argument('--num_workers', type=int, default = 0, help='number of workers for dataset loading')
+    parser.add_argument('--num_workers', type=int, default = 4, help='number of workers for dataset loading')
     args = parser.parse_args()
+    
     print("show all arguments configuration...")
     print(args)
 

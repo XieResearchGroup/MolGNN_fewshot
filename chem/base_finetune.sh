@@ -1,7 +1,7 @@
 #### benchmark fine-tuning
 
 device=2
-experiment_date=0302_3
+experiment_date=0310_BASE_Seed7
 split=scaffold
 input_model_file=/raid/home/public/YangLiu/contextPred/pretrained_models/chemblFiltered_and_supervise_pretrained_model_with_contextPred
 
@@ -12,12 +12,12 @@ gnn_type=gin
 use_original=1
 
 ### for GIN
-for runseed in 4
+for runseed in 7
 do
 #for dataset in bace
 #for dataset in jak1 jak2 jak3
-#for dataset in bace bbbp sider clintox toxcast 
-for dataset in  tox21  hiv muv
+for dataset in bace bbbp sider clintox toxcast 
+#for dataset in  tox21  hiv muv
 #for dataset in bbbp
 do
 
