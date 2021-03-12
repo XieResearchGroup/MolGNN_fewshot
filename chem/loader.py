@@ -391,7 +391,7 @@ class MoleculeDataset(InMemoryDataset):
 
         elif self.dataset == "chembl_filtered":
             # get downstream test molecules.
-            from splitters import scaffold_split
+            from .splitters import scaffold_split
 
             # dataset dirs
             downstream_dir = [
@@ -717,6 +717,60 @@ class MoleculeDataset(InMemoryDataset):
         elif self.dataset in ["jak1", "jak2", "jak3"]:
             smiles_list, rdkit_mol_objs, labels = _load_jak_dataset(
                 os.path.join(self.raw_dir, f"filtered_{self.dataset.upper()}.csv")
+            )
+            for i in range(len(smiles_list)):
+                print(i, end="\r")
+                rdkit_mol = rdkit_mol_objs[i]
+                # # convert aromatic bonds to double bonds
+                # Chem.SanitizeMol(rdkit_mol,
+                #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                data = mol_to_graph_data_obj_simple(rdkit_mol)
+                # manually add mol id
+                data.id = torch.tensor([i])  # id here is the index of the mol in
+                # the dataset
+                data.y = torch.tensor([labels[i]])
+                data_list.append(data)
+                data_smiles_list.append(smiles_list[i])
+
+        elif self.dataset == "amu":
+            smiles_list, rdkit_mol_objs, labels = _load_amu_dataset(
+                os.path.join(self.raw_dir, "amu_sars_cov_2_in_vitro.csv")
+            )
+            for i in range(len(smiles_list)):
+                print(i, end="\r")
+                rdkit_mol = rdkit_mol_objs[i]
+                # # convert aromatic bonds to double bonds
+                # Chem.SanitizeMol(rdkit_mol,
+                #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                data = mol_to_graph_data_obj_simple(rdkit_mol)
+                # manually add mol id
+                data.id = torch.tensor([i])  # id here is the index of the mol in
+                # the dataset
+                data.y = torch.tensor([labels[i]])
+                data_list.append(data)
+                data_smiles_list.append(smiles_list[i])
+
+        elif self.dataset == "ellinger":
+            smiles_list, rdkit_mol_objs, labels = _load_ellinger_dataset(
+                os.path.join(self.raw_dir, "ellinger.csv")
+            )
+            for i in range(len(smiles_list)):
+                print(i, end="\r")
+                rdkit_mol = rdkit_mol_objs[i]
+                # # convert aromatic bonds to double bonds
+                # Chem.SanitizeMol(rdkit_mol,
+                #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                data = mol_to_graph_data_obj_simple(rdkit_mol)
+                # manually add mol id
+                data.id = torch.tensor([i])  # id here is the index of the mol in
+                # the dataset
+                data.y = torch.tensor([labels[i]])
+                data_list.append(data)
+                data_smiles_list.append(smiles_list[i])
+
+        elif self.dataset == "mpro":
+            smiles_list, rdkit_mol_objs, labels = _load_mpro_dataset(
+                os.path.join(self.raw_dir, "mpro_xchem.csv")
             )
             for i in range(len(smiles_list)):
                 print(i, end="\r")
@@ -1271,6 +1325,66 @@ def _load_jak_dataset(input_path):
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
     return smiles_list, rdkit_mol_objs_list, labels.values
+
+
+def _load_amu_dataset(input_path):
+    input_df = pd.read_csv(input_path, sep=",")
+    smiles_list = list()
+    labels = list()
+    rdkit_mol_objs_list = []
+    for smi, lb in zip(input_df["smiles"], input_df["fda"]):
+        mol = AllChem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        rdkit_mol_objs_list.append(mol)
+        smiles_list.append(smi)
+        labels.append(lb)
+    # convert 0 to -1
+    labels = np.array(labels)
+    labels = np.where(labels == 0, -1, labels)
+    assert len(smiles_list) == len(rdkit_mol_objs_list)
+    assert len(smiles_list) == len(labels)
+    return smiles_list, rdkit_mol_objs_list, labels
+
+
+def _load_ellinger_dataset(input_path):
+    input_df = pd.read_csv(input_path, sep=",")
+    smiles_list = list()
+    labels = list()
+    rdkit_mol_objs_list = []
+    for smi, lb in zip(input_df["Smiles"], input_df["activity"]):
+        mol = AllChem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        rdkit_mol_objs_list.append(mol)
+        smiles_list.append(smi)
+        labels.append(lb)
+    # convert 0 to -1
+    labels = np.array(labels)
+    labels = np.where(labels == 0, -1, labels)
+    assert len(smiles_list) == len(rdkit_mol_objs_list)
+    assert len(smiles_list) == len(labels)
+    return smiles_list, rdkit_mol_objs_list, labels
+
+
+def _load_mpro_dataset(input_path):
+    input_df = pd.read_csv(input_path, sep=",")
+    smiles_list = list()
+    labels = list()
+    rdkit_mol_objs_list = []
+    for smi, lb in zip(input_df["smiles"], input_df["activity"]):
+        mol = AllChem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        rdkit_mol_objs_list.append(mol)
+        smiles_list.append(smi)
+        labels.append(lb)
+    # convert 0 to -1
+    labels = np.array(labels)
+    labels = np.where(labels == 0, -1, labels)
+    assert len(smiles_list) == len(rdkit_mol_objs_list)
+    assert len(smiles_list) == len(labels)
+    return smiles_list, rdkit_mol_objs_list, labels
 
 
 def _load_chembl_with_labels_dataset(root_path):

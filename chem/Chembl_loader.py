@@ -271,7 +271,7 @@ class ChemBLFP(Dataset):
             return self._data_len
 
     def get(self, idx):
-        if idx == 604838:  # this molecule
+        if idx == 604838:  # this molecule is not convertable to rdkit Mol
             idx = 604839
         data = torch.load(osp.join(self.processed_dir, f"data_{idx}.pt"))
         return data
