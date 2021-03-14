@@ -234,12 +234,8 @@ def main():
         num_tasks = 27
     elif args.dataset == "clintox":
         num_tasks = 2
-    elif args.dataset == "jak1":
-        num_tasks = 1
-    elif args.dataset == "jak2":
-        num_tasks = 1
-    elif args.dataset == "jak3":
-        num_tasks = 1
+    elif args.dataset in ["jak1", "jak2", "jak3", "amu", "ellinger", "mpro"]:
+        num_tasks =1
     else:
         raise ValueError("Invalid dataset name.")
 

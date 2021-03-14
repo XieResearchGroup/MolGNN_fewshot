@@ -95,8 +95,17 @@ def main():
                         help='weight decay (default: 0)')
     parser.add_argument('--num_layer', type=int, default=5,
                         help='number of GNN message passing layers (default: 5).')
-    parser.add_argument('--emb_dim', type=int, default=300,
+    parser.add_argument('--emb_dim', type=int, default=256,
                         help='embedding dimensions (default: 300)')
+    
+    parser.add_argument(
+    "--node_feat_dim", type=int, default=154, help="dimension of the node features.",
+)
+parser.add_argument(
+    "--edge_feat_dim", type=int, default=2, help="dimension ofo the edge features."
+)
+
+
     parser.add_argument('--dropout_ratio', type=float, default=0.2,
                         help='dropout ratio (default: 0.2)')
     parser.add_argument('--graph_pooling', type=str, default="mean",
@@ -108,6 +117,10 @@ def main():
     parser.add_argument('--input_model_file', type=str, default = '', help='filename to read the model (if there is any)')
     parser.add_argument('--output_model_file', type = str, default = '', help='filename to output the pre-trained model')
     parser.add_argument('--num_workers', type=int, default = 8, help='number of workers for dataset loading')
+    parser.add_argument(
+    "--use_original",
+    type=int, default=0, help="run benchmark experiment or not")
+
     args = parser.parse_args()
 
 
@@ -124,12 +137,28 @@ def main():
         raise ValueError("Invalid dataset name.")
 
     #set up dataset
-    dataset = MoleculeDataset("dataset/" + args.dataset, dataset=args.dataset)
+    dataset = MoleculeDataset("/raid/home/public/dataset_ContextPred_0219/" + args.dataset, dataset=args.dataset)
 
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
+    
 
     #set up model
     model = GNN_graphpred(args.num_layer, args.emb_dim, num_tasks, JK = args.JK, drop_ratio = args.dropout_ratio, graph_pooling = args.graph_pooling, gnn_type = args.gnn_type)
+    if args.use_original == 0:
+        model = GNN_graphpred(
+        args.num_layer,
+        args.node_feat_dim,
+        args.edge_feat_dim,
+        args.emb_dim,
+        num_tasks,
+        JK=args.JK,
+        drop_ratio=args.dropout_ratio,
+        graph_pooling=args.graph_pooling,
+        gnn_type=args.gnn_type,
+        use_embedding=args.use_original
+    )
+        dataset =  MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset , transform = ONEHOT_ENCODING(dataset = dataset))
+    
+    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers = args.num_workers)
     if not args.input_model_file == "":
         model.from_pretrained(args.input_model_file + ".pth")
     
