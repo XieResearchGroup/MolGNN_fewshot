@@ -12,7 +12,7 @@ from tqdm import tqdm
 import numpy as np
 
 from model import GNN_MLP, GNN_graphpred, GNN
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score, accuracy_score, f1_score
 
 from splitters import scaffold_split,random_split
 import pandas as pd
@@ -73,8 +73,11 @@ def eval(args, model, device, loader):
     y_scores = torch.cat(y_scores, dim=0).cpu().numpy()
     ap_list = []
     roc_list = []
-
-    #print (f'y true shape: {y_true.shape[1]}')
+    acc_list = []
+    f1_list = []
+  
+    print (f'y true : {y_true}, y true shape : {y_true.shape}')
+    print (f'y score : {y_scores}, y score shape : {y_scores.shape}')
     for i in range(y_true.shape[1]):
         #print(f'y true in the shape[1]:{y_true[:,i]}')
         # AUC is only defined when there is at least one positive data.
@@ -85,15 +88,20 @@ def eval(args, model, device, loader):
             roc_list.append(
                 roc_auc_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i])
             )
-            #print(f'roc list{roc_list}, lenth{len(roc_list)}')
-            #ap_list.append(average_precision_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i]))
+            
+            acc_list.append(accuracy_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i].round()))
+            f1_list.append(f1_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i].round(), average='macro'))
+            ap_list.append(average_precision_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i]))
+            
+            
     
     #print(f'roc list{roc_list}, lenth roc : {len(roc_list)}, lenth true:{y_true.shape[1]}')
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
         print("Missing ratio: %f" % (1 - float(len(roc_list)) / y_true.shape[1]))
 
-    return sum(roc_list) / len(roc_list)  # y_true.shape[1]
+    return sum(roc_list) / len(roc_list), sum(acc_list)/len(acc_list), sum(f1_list)/len(f1_list), sum(ap_list)/len(ap_list) # y_true.shape[1]
+#
 
 
 def main():
@@ -340,13 +348,22 @@ def main():
     )
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
     print(optimizer)
-
+    
+    train_roc_list = []
     train_acc_list = []
+    train_f1_list = []
+    train_ap_list =[]
+    val_roc_list = []
     val_acc_list = []
+    val_f1_list = []
+    val_ap_list = []
+    test_roc_list = []
     test_acc_list = []
+    test_f1_list = []
+    test_ap_list = []
 
     if not args.filename == "":
-        fname = "/raid/home/yoyowu/Weihua_b/TFlogs_0224/" + str(args.runseed) + "/" + args.filename
+        fname = "/raid/home/yoyowu/Weihua_b/ConFP_TFlogs/" + str(args.runseed) + "/" + args.filename
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)
@@ -360,24 +377,45 @@ def main():
 
         print("====Evaluation")
         if args.eval_train:
-            train_acc = eval(args, model, device, train_loader)
+            train_roc, train_acc,  train_f1 ,train_ap = eval(args, model, device, train_loader)
         else:
             print("omit the training accuracy computation")
-            train_acc = 0
-           
-        val_acc = eval(args, model, device, val_loader)
-        test_acc = eval(args, model, device, test_loader)
+            train_roc = 0
+            train_acc =0 
+            train_f1 = 0
+            train_ap = 0
+        val_roc, val_acc, val_f1, val_ap = eval(args, model, device, val_loader)
+        test_roc, test_acc, test_f1, test_ap = eval(args, model, device, test_loader)
 
-        print("train: %f val: %f test auc: %f " % (train_acc, val_acc, test_acc))
-
+        print("train: %f val: %f test auc: %f " % (train_roc, val_roc, test_roc))
+        val_roc_list.append(val_roc)
+        val_f1_list.append(val_f1)
         val_acc_list.append(val_acc)
+        val_ap_list.append(val_ap)
         test_acc_list.append(test_acc)
+        test_roc_list.append(test_roc)
+        test_f1_list.append(test_f1)
+        test_ap_list.append(test_ap)
         train_acc_list.append(train_acc)
+        train_roc_list.append(train_roc)
+        train_f1_list.append(train_f1)
+        train_ap_list.append(train_ap)
 
         if not args.filename == "":
-            writer.add_scalar("data/train auc", train_acc, epoch)
-            writer.add_scalar("data/val auc", val_acc, epoch)
-            writer.add_scalar("data/test auc", test_acc, epoch)
+            writer.add_scalar("data/train roc", train_roc, epoch)
+            writer.add_scalar("data/train acc", train_acc, epoch)
+            writer.add_scalar("data/train f1", train_f1, epoch)
+            writer.add_scalar("data/train ap", train_ap, epoch)
+            
+            writer.add_scalar("data/val roc", val_roc, epoch)
+            writer.add_scalar("data/val acc", val_acc, epoch)
+            writer.add_scalar("data/val f1", val_f1, epoch)
+            writer.add_scalar("data/val ap", val_ap, epoch)
+            
+            writer.add_scalar("data/test roc", test_roc, epoch)
+            writer.add_scalar("data/test acc", test_acc, epoch)
+            writer.add_scalar("data/test f1", test_f1, epoch)
+            writer.add_scalar("data/test ap", test_ap, epoch)
 
         print("")
 
