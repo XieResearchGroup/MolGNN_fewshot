@@ -75,9 +75,9 @@ def eval(args, model, device, loader):
     roc_list = []
     acc_list = []
     f1_list = []
-  
-    print (f'y true : {y_true}, y true shape : {y_true.shape}')
-    print (f'y score : {y_scores}, y score shape : {y_scores.shape}')
+    #torch.sigmoid(y_scores)
+    #print (f'y true : {y_true}, y true shape : {y_true.shape}')
+    #print (f'y score : {y_scores}, y score shape : {y_scores.shape}')
     for i in range(y_true.shape[1]):
         #print(f'y true in the shape[1]:{y_true[:,i]}')
         # AUC is only defined when there is at least one positive data.
@@ -89,8 +89,8 @@ def eval(args, model, device, loader):
                 roc_auc_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i])
             )
             
-            acc_list.append(accuracy_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i].round()))
-            f1_list.append(f1_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i].round(), average='macro'))
+            acc_list.append(accuracy_score(torch.tensor((y_true[is_valid, i] + 1) / 2), torch.sigmoid(torch.tensor(y_scores[is_valid, i])).round()))
+            f1_list.append(f1_score(torch.tensor((y_true[is_valid, i] + 1) / 2), torch.sigmoid(torch.tensor(y_scores[is_valid, i])).round(), average='macro'))
             ap_list.append(average_precision_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i]))
             
             
