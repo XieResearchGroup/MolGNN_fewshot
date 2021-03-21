@@ -12,9 +12,14 @@ from tqdm import tqdm
 import numpy as np
 
 from model import GNN_MLP, GNN_graphpred, GNN
-from sklearn.metrics import roc_auc_score, average_precision_score, accuracy_score, f1_score
+from sklearn.metrics import (
+    roc_auc_score,
+    average_precision_score,
+    accuracy_score,
+    f1_score,
+)
 
-from splitters import scaffold_split,random_split
+from splitters import scaffold_split, random_split, oversample_split
 import pandas as pd
 
 import os
@@ -23,7 +28,6 @@ import shutil
 from tensorboardX import SummaryWriter
 
 from util import ONEHOT_ENCODING
-
 
 
 criterion = nn.BCEWithLogitsLoss(reduction="none")
@@ -75,19 +79,23 @@ def eval(args, model, device, loader):
     roc_list = []
     acc_list = []
     f1_list = []
+
     #torch.sigmoid(y_scores)
     #print (f'y true : {y_true}, y true shape : {y_true.shape}')
     #print (f'y score : {y_scores}, y score shape : {y_scores.shape}')
+
+
     for i in range(y_true.shape[1]):
-        #print(f'y true in the shape[1]:{y_true[:,i]}')
+        # print(f'y true in the shape[1]:{y_true[:,i]}')
         # AUC is only defined when there is at least one positive data.
         if np.sum(y_true[:, i] == 1) > 0 and np.sum(y_true[:, i] == -1) > 0:
-            #print(f' after if the y_true value:{y_true[:,i]}')
+            # print(f' after if the y_true value:{y_true[:,i]}')
             is_valid = y_true[:, i] ** 2 > 0
-            #print(f'is valid {is_valid}')
+            # print(f'is valid {is_valid}')
             roc_list.append(
                 roc_auc_score((y_true[is_valid, i] + 1) / 2, y_scores[is_valid, i])
             )
+
             
             acc_list.append(accuracy_score(torch.tensor((y_true[is_valid, i] + 1) / 2), torch.sigmoid(torch.tensor(y_scores[is_valid, i])).round()))
             f1_list.append(f1_score(torch.tensor((y_true[is_valid, i] + 1) / 2), torch.sigmoid(torch.tensor(y_scores[is_valid, i])).round(), average='macro'))
@@ -96,11 +104,19 @@ def eval(args, model, device, loader):
             
     
     #print(f'roc list{roc_list}, lenth roc : {len(roc_list)}, lenth true:{y_true.shape[1]}')
+
     if len(roc_list) < y_true.shape[1]:
         print("Some target is missing!")
         print("Missing ratio: %f" % (1 - float(len(roc_list)) / y_true.shape[1]))
 
-    return sum(roc_list) / len(roc_list), sum(acc_list)/len(acc_list), sum(f1_list)/len(f1_list), sum(ap_list)/len(ap_list) # y_true.shape[1]
+    return (
+        sum(roc_list) / len(roc_list),
+        sum(acc_list) / len(acc_list),
+        sum(f1_list) / len(f1_list),
+        sum(ap_list) / len(ap_list),
+    )  # y_true.shape[1]
+
+
 #
 
 
@@ -142,14 +158,16 @@ def main():
         default=5,
         help="number of GNN message passing layers (default: 5).",
     )
-    
+
     parser.add_argument(
-        "--node_feat_dim", type=int, default=154, help="dimension of the node features.",
+        "--node_feat_dim",
+        type=int,
+        default=154,
+        help="dimension of the node features.",
     )
     parser.add_argument(
         "--edge_feat_dim", type=int, default=2, help="dimension ofo the edge features."
     )
-
 
     parser.add_argument(
         "--emb_dim", type=int, default=256, help="embedding dimensions (default: 300)"
@@ -208,9 +226,9 @@ def main():
         help="number of workers for dataset loading",
     )
     parser.add_argument(
-        "--use_original",
-        type=int, default=0, help="run benchmark experiment or not")
-    
+        "--use_original", type=int, default=0, help="run benchmark experiment or not"
+    )
+
     args = parser.parse_args()
 
     torch.manual_seed(args.runseed)
@@ -243,21 +261,29 @@ def main():
     elif args.dataset == "clintox":
         num_tasks = 2
     elif args.dataset in ["jak1", "jak2", "jak3", "amu", "ellinger", "mpro"]:
-        num_tasks =1
+        num_tasks = 1
     else:
         raise ValueError("Invalid dataset name.")
 
     # set up dataset
-#    dataset = MoleculeDataset("contextPred/chem/dataset/" + args.dataset, dataset=args.dataset)
-    dataset = MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset)
+    #    dataset = MoleculeDataset("contextPred/chem/dataset/" + args.dataset, dataset=args.dataset)
+    dataset = MoleculeDataset(
+        root="/raid/home/public/dataset_ContextPred_0219/" + args.dataset
+    )
     if args.use_original == 0:
-        dataset =  MoleculeDataset(root = "/raid/home/public/dataset_ContextPred_0219/" + args.dataset , transform = ONEHOT_ENCODING(dataset = dataset))
-    
+        dataset = MoleculeDataset(
+            root="/raid/home/public/dataset_ContextPred_0219/" + args.dataset,
+            transform=ONEHOT_ENCODING(dataset=dataset),
+        )
+
     print(dataset)
 
     if args.split == "scaffold":
         smiles_list = pd.read_csv(
-            "/raid/home/public/dataset_ContextPred_0219/" + args.dataset + "/processed/smiles.csv", header=None
+            "/raid/home/public/dataset_ContextPred_0219/"
+            + args.dataset
+            + "/processed/smiles.csv",
+            header=None,
         )[0].tolist()
         train_dataset, valid_dataset, test_dataset = scaffold_split(
             dataset,
@@ -268,6 +294,16 @@ def main():
             frac_test=0.1,
         )
         print("scaffold")
+    elif args.split == "oversample":
+        train_dataset, valid_dataset, test_dataset = oversample_split(
+            dataset,
+            null_value=0,
+            frac_train=0.8,
+            frac_valid=0.1,
+            frac_test=0.1,
+            seed=args.seed,
+        )
+        print("oversample")
     elif args.split == "random":
         train_dataset, valid_dataset, test_dataset = random_split(
             dataset,
@@ -280,8 +316,9 @@ def main():
         print("random")
     elif args.split == "random_scaffold":
         smiles_list = pd.read_csv(
-        "dataset/" + args.dataset + "/processed/smiles.csv", header=None 
-#     "contextPred/chem/dataset/" + args.dataset + "/processed/smiles.csv", header=None
+            "dataset/" + args.dataset + "/processed/smiles.csv",
+            header=None
+            #     "contextPred/chem/dataset/" + args.dataset + "/processed/smiles.csv", header=None
         )[0].tolist()
         train_dataset, valid_dataset, test_dataset = random_scaffold_split(
             dataset,
@@ -328,7 +365,7 @@ def main():
         drop_ratio=args.dropout_ratio,
         graph_pooling=args.graph_pooling,
         gnn_type=args.gnn_type,
-        use_embedding=args.use_original
+        use_embedding=args.use_original,
     )
     if not args.input_model_file == "":
         model.from_pretrained(args.input_model_file + ".pth")
@@ -348,11 +385,11 @@ def main():
     )
     optimizer = optim.Adam(model_param_group, lr=args.lr, weight_decay=args.decay)
     print(optimizer)
-    
+
     train_roc_list = []
     train_acc_list = []
     train_f1_list = []
-    train_ap_list =[]
+    train_ap_list = []
     val_roc_list = []
     val_acc_list = []
     val_f1_list = []
@@ -363,7 +400,12 @@ def main():
     test_ap_list = []
 
     if not args.filename == "":
-        fname = "/raid/home/yoyowu/Weihua_b/ConFP_TFlogs/" + str(args.runseed) + "/" + args.filename
+        fname = (
+            "/raid/home/yoyowu/Weihua_b/ConFP_TFlogs/"
+            + str(args.runseed)
+            + "/"
+            + args.filename
+        )
         # delete the directory if there exists one
         if os.path.exists(fname):
             shutil.rmtree(fname)
@@ -377,11 +419,13 @@ def main():
 
         print("====Evaluation")
         if args.eval_train:
-            train_roc, train_acc,  train_f1 ,train_ap = eval(args, model, device, train_loader)
+            train_roc, train_acc, train_f1, train_ap = eval(
+                args, model, device, train_loader
+            )
         else:
             print("omit the training accuracy computation")
             train_roc = 0
-            train_acc =0 
+            train_acc = 0
             train_f1 = 0
             train_ap = 0
         val_roc, val_acc, val_f1, val_ap = eval(args, model, device, val_loader)
@@ -406,12 +450,12 @@ def main():
             writer.add_scalar("data/train acc", train_acc, epoch)
             writer.add_scalar("data/train f1", train_f1, epoch)
             writer.add_scalar("data/train ap", train_ap, epoch)
-            
+
             writer.add_scalar("data/val roc", val_roc, epoch)
             writer.add_scalar("data/val acc", val_acc, epoch)
             writer.add_scalar("data/val f1", val_f1, epoch)
             writer.add_scalar("data/val ap", val_ap, epoch)
-            
+
             writer.add_scalar("data/test roc", test_roc, epoch)
             writer.add_scalar("data/test acc", test_acc, epoch)
             writer.add_scalar("data/test f1", test_f1, epoch)
