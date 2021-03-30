@@ -785,7 +785,26 @@ class MoleculeDataset(InMemoryDataset):
                 data.y = torch.tensor([labels[i]])
                 data_list.append(data)
                 data_smiles_list.append(smiles_list[i])
-
+        elif self.dataset == "repurposing":
+            smiles_list, rdkit_mol_objs, cids, names = _load_repurposing_dataset(
+                os.path.join(self.raw_dir, "repurposing_drugs_smiles.tsv")
+            )
+            data_names_list = list()
+            for i in range(len(smiles_list)):
+                print(i, end="\r")
+                rdkit_mol = rdkit_mol_objs[i]
+                # # convert aromatic bonds to double bonds
+                # Chem.SanitizeMol(rdkit_mol,
+                #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                data = mol_to_graph_data_obj_simple(rdkit_mol)
+                # manually add mol id
+                data.id = torch.tensor([i])  # id here is the index of the mol in
+                # the dataset
+                data.y = torch.tensor([-1])
+                data.cid = torch.tensor([int(cids[i])])
+                data_list.append(data)
+                data_smiles_list.append(smiles_list[i])
+                data_names_list.append(names[i])
         else:
             raise ValueError("Invalid dataset name")
 
@@ -800,6 +819,13 @@ class MoleculeDataset(InMemoryDataset):
         data_smiles_series.to_csv(
             os.path.join(self.processed_dir, "smiles.csv"), index=False, header=False
         )
+        if self.dataset == "repurposing":
+            data_names_series = pd.Series(data_names_list)
+            data_names_series.to_csv(
+                os.path.join(self.processed_dir, "drug_names.csv"),
+                index=False,
+                header=False,
+            )
 
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
@@ -1385,6 +1411,27 @@ def _load_mpro_dataset(input_path):
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
     return smiles_list, rdkit_mol_objs_list, labels
+
+
+def _load_repurposing_dataset(input_path):
+    input_df = pd.read_csv(input_path, sep="\t")
+    smiles_list = list()
+    cids = list()
+    drug_names = list()
+    rdkit_mol_objs_list = []
+    for smi, cid, name in zip(
+        input_df["smiles"], input_df["cid"], input_df["drug_name"]
+    ):
+        mol = AllChem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        rdkit_mol_objs_list.append(mol)
+        smiles_list.append(smi)
+        cids.append(cid)
+        drug_names.append(name)
+    assert len(smiles_list) == len(rdkit_mol_objs_list)
+    assert len(smiles_list) == len(cids)
+    return smiles_list, rdkit_mol_objs_list, cids, drug_names
 
 
 def _load_chembl_with_labels_dataset(root_path):
