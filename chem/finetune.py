@@ -19,7 +19,7 @@ from sklearn.metrics import (
     f1_score,
 )
 
-from splitters import scaffold_split, random_split, oversample_split
+from splitters import scaffold_split, random_split, oversample_split, random_scaffold_split
 import pandas as pd
 
 import os
@@ -81,8 +81,8 @@ def eval(args, model, device, loader):
     f1_list = []
 
     #torch.sigmoid(y_scores)
-    #print (f'y true : {y_true}, y true shape : {y_true.shape}')
-    #print (f'y score : {y_scores}, y score shape : {y_scores.shape}')
+    positive_true = [i for i in y_true if i >0]
+    positive_scores = [i for i in y_scores if i >0]
 
 
     for i in range(y_true.shape[1]):
@@ -114,7 +114,10 @@ def eval(args, model, device, loader):
         sum(acc_list) / len(acc_list),
         sum(f1_list) / len(f1_list),
         sum(ap_list) / len(ap_list),
-    )  # y_true.shape[1]
+        len(positive_true), len(positive_scores)) 
+
+
+# y_true.shape[1]
 
 
 #
@@ -228,6 +231,7 @@ def main():
     parser.add_argument(
         "--use_original", type=int, default=0, help="run benchmark experiment or not"
     )
+    #parser.add_argument('--output_model_file', type = str, default = 'finetuned_model/amu', help='filename to output the finetuned model')
 
     args = parser.parse_args()
 
@@ -316,9 +320,11 @@ def main():
         print("random")
     elif args.split == "random_scaffold":
         smiles_list = pd.read_csv(
-            "dataset/" + args.dataset + "/processed/smiles.csv",
+             "/raid/home/public/dataset_ContextPred_0219/"
+            + args.dataset
+            + "/processed/smiles.csv",
             header=None
-            #     "contextPred/chem/dataset/" + args.dataset + "/processed/smiles.csv", header=None
+           
         )[0].tolist()
         train_dataset, valid_dataset, test_dataset = random_scaffold_split(
             dataset,
@@ -416,20 +422,32 @@ def main():
         print("====epoch " + str(epoch))
 
         train(args, model, device, train_loader, optimizer)
+        #if not args.output_model_file == "":
+         #   torch.save(model.state_dict(), args.output_model_file + str(epoch)+ ".pth")  
 
         print("====Evaluation")
         if args.eval_train:
-            train_roc, train_acc, train_f1, train_ap = eval(
+            train_roc, train_acc, train_f1, train_ap, train_num_positive_true, train_num_positive_scores = eval(
                 args, model, device, train_loader
             )
+
+
+
         else:
             print("omit the training accuracy computation")
             train_roc = 0
             train_acc = 0
             train_f1 = 0
             train_ap = 0
-        val_roc, val_acc, val_f1, val_ap = eval(args, model, device, val_loader)
-        test_roc, test_acc, test_f1, test_ap = eval(args, model, device, test_loader)
+        val_roc, val_acc, val_f1, val_ap, val_num_positive_true, val_num_positive_scores = eval(args, model, device, val_loader)
+        test_roc, test_acc, test_f1, test_ap, test_num_positive_true, test_num_positive_scores  = eval(args, model, device, test_loader)
+        #with open('debug_ellinger.txt', "a") as f:
+         #   f.write("====epoch " + str(epoch) +" \n training:  positive true count {} , positive scores count {} \n".format(train_num_positive_true,train_num_positive_scores))
+          #  f.write("val:  positive true count {} , positive scores count {} \n".format(val_num_positive_true,val_num_positive_scores))
+           # f.write("test:  positive true count {} , positive scores count {} \n".format(test_num_positive_true,test_num_positive_scores))
+            #f.write("\n")
+
+
 
         print("train: %f val: %f test auc: %f " % (train_roc, val_roc, test_roc))
         val_roc_list.append(val_roc)
