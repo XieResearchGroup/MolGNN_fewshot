@@ -1,7 +1,7 @@
 #### GIN fine-tuning
 
-device=2
-experiment_date=0402
+device=0
+experiment_date=0405
 split=random_scaffold
 #output_model_file=tuned_model/jak3/
 
@@ -12,9 +12,10 @@ eval_train=1
 #dropout_ratio=0.7
 
 dropout_ratio=0.5
-seed=7
-dataset=mpro
-for runseed in 0 1 2 4
+
+dataset=amu
+seed=8
+for runseed in 0 1 3 4
 do
 
 #for dataset in bace
@@ -31,9 +32,9 @@ do
 python finetune.py --input_model_file ${input_model_file}  --split ${split} \
 --filename ${dataset}_${dropout_ratio}_splitseed_${seed}_${split}_FULLchembl_finetune_${experiment_date} --dropout_ratio ${dropout_ratio}  --seed ${seed} \
 --device $device --runseed $runseed  --dataset ${dataset} --epochs ${epochs} --eval_train ${eval_train} \
-> outlogs0401/finetune_runseed${runseed}_splitseed_${seed}_${split}_FULLchembl_${dropout_ratio}_${experiment_date}_${dataset}_output.log 2>&1 &
+> ours_more/finetune_runseed${runseed}_splitseed_${seed}_${split}_FULLchembl_${dropout_ratio}_${experiment_date}_${dataset}_output.log 2>&1 &
 echo "done ${dataset}_${experiment_date}"
-wait
+
 done
 
 

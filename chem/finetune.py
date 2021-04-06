@@ -407,7 +407,7 @@ def main():
 
     if not args.filename == "":
         fname = (
-            "/raid/home/yoyowu/Weihua_b/ConFP_TFlogs/"
+            "/raid/home/yoyowu/Weihua_b/BASE_TFlogs/"
             + str(args.runseed)
             + "/"
             + args.filename
