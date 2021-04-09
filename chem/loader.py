@@ -294,7 +294,7 @@ class MoleculeDataset(InMemoryDataset):
         for key in self.data.keys:
             item, slices = self.data[key], self.slices[key]
             s = list(repeat(slice(None), item.dim()))
-            s[data.cat_dim(key, item)] = slice(slices[idx],
+            s[data.__cat_dim__(key, item)] = slice(slices[idx],
                                                     slices[idx + 1])
             data[key] = item[s]
         return data
@@ -309,7 +309,7 @@ class MoleculeDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return 'geometric_data_processed.pt'
+        return 'geometric_data_processed_2f.pt'
 
     def download(self):
         raise NotImplementedError('Must indicate valid location of raw data. '
@@ -718,6 +718,22 @@ class MoleculeDataset(InMemoryDataset):
                     data_list.append(data)
                     data_smiles_list.append(smiles_list[i])
                     
+        elif self.dataset in ["jak1", "jak2", "jak3"]:
+             smiles_list, rdkit_mol_objs, labels = _load_jak_dataset(
+                 os.path.join(self.raw_dir, f"filtered_{self.dataset.upper()}.csv"))
+             for i in range(len(smiles_list)):
+                 print(i, end="\r")
+                 rdkit_mol = rdkit_mol_objs[i]
+                 # # convert aromatic bonds to double bonds
+                 # Chem.SanitizeMol(rdkit_mol,
+                 #                  sanitizeOps=Chem.SanitizeFlags.SANITIZE_KEKULIZE)
+                 data = mol_to_graph_data_obj_simple(rdkit_mol)
+                 # manually add mol id
+                 data.id = torch.tensor([i])  # id here is the index of the mol in
+                 # the dataset
+                 data.y = torch.tensor([labels[i]])
+                 data_list.append(data)
+                 data_smiles_list.append(smiles_list[i])
 
         else:
             raise ValueError('Invalid dataset name')
@@ -1320,7 +1336,17 @@ def create_all_datasets():
     print(dataset)
     dataset = MoleculeDataset(root = "dataset/zinc_standard_agent", dataset="zinc_standard_agent")
     print(dataset)
-
+    
+def _load_jak_dataset(input_path):
+     input_df = pd.read_csv(input_path, sep=",")
+     smiles_list = input_df["Smiles"]
+     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
+     labels = input_df["Activity"]
+     # convert 0 to -1
+     labels = labels.replace(0, -1)
+     assert len(smiles_list) == len(rdkit_mol_objs_list)
+     assert len(smiles_list) == len(labels)
+     return smiles_list, rdkit_mol_objs_list, labels.values
 
 # test MoleculeDataset object
 if __name__ == "__main__":
