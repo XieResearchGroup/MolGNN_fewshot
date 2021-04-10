@@ -1,4 +1,4 @@
-![image](./gae_finger_printer_network.png
+
 
 # COVID-19 Multi-Targeted Drug Repurposing Using Few-Shot 
 
@@ -10,7 +10,7 @@ Yang Liu, You Wu, Xiaoke Shen, Lei Xie. COVID-19 Multi-Targeted Drug Repurposing
 
 ## Architecture 
 
-![Fig1](/Users/wuyou/Downloads/Fig1.png)
+![Fig1](./Fig1.png)
 
 ## Installation 
 
