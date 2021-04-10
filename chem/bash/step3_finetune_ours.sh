@@ -3,7 +3,7 @@
 device=0
 experiment_date=0405
 split=random_scaffold
-#output_model_file=tuned_model/jak3/
+
 
 input_model_file=trained_model/chemblFP_full_batch128
 
@@ -14,20 +14,29 @@ eval_train=1
 dropout_ratio=0.5
 
 dataset=amu
-seed=8
+if [$dataset==amu]
+then
+  seed=15
+elif [$dataset==ellinger]
+then
+  seed=4
+elif [$dataset==mpro]
+then
+  seed=7
+elif [$dataset==jak1]
+then
+  seed=20
+elif [$dataset==jak2]
+then
+  seed=4
+elif [$dataset==jak3]
+then
+  seed=66
+
+
 for runseed in 0 1 3 4
 do
 
-#for dataset in bace
-#for dataset in jak1 jak2 jak3
-#do
-#for dataset in ellinger mpro
-#do
-#for dataset in bace bbbp sider clintox toxcast 
-#for dataset in   muv
-#for dataset in amu ellinger mpro jak1 jak2 jak3
-#for seed in 27 16 0 1 6 7 
-#for seed in 15 19 21 24 26 28
 
 python finetune.py --input_model_file ${input_model_file}  --split ${split} \
 --filename ${dataset}_${dropout_ratio}_splitseed_${seed}_${split}_FULLchembl_finetune_${experiment_date} --dropout_ratio ${dropout_ratio}  --seed ${seed} \
