@@ -1,7 +1,7 @@
 #### GIN fine-tuning
 
 device=0
-experiment_date=0405
+experiment_date=0409
 split=random_scaffold
 
 
@@ -14,27 +14,31 @@ eval_train=1
 dropout_ratio=0.5
 
 dataset=amu
-if [$dataset==amu]
+
+if [ $dataset==amu ]
 then
   seed=15
-elif [$dataset==ellinger]
+elif [ $dataset==ellinger ]
 then
   seed=4
-elif [$dataset==mpro]
+elif [ $dataset==mpro ]
 then
   seed=7
-elif [$dataset==jak1]
+elif [ $dataset==jak1 ]
 then
   seed=20
-elif [$dataset==jak2]
+elif [ $dataset==jak2 ]
 then
   seed=4
-elif [$dataset==jak3]
+elif [ $dataset==jak3 ]
+
 then
   seed=66
 fi
 
-for runseed in 0 1 3 4
+
+for runseed in 0 1 2 3 4
+
 do
 
 
@@ -45,6 +49,8 @@ python finetune.py --input_model_file ${input_model_file}  --split ${split} \
 echo "done ${dataset}_${experiment_date}"
 
 done
+
+
 
 
 
