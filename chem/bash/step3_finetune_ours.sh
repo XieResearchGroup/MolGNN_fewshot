@@ -32,7 +32,7 @@ then
 elif [$dataset==jak3]
 then
   seed=66
-
+fi
 
 for runseed in 0 1 3 4
 do
